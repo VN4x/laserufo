@@ -116,7 +116,9 @@ function PlayPage() {
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
+      Music.stop();
     };
+
   }, []);
 
   useEffect(() => {

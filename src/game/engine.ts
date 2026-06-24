@@ -295,7 +295,7 @@ export class Game {
       this.audio.whoosh();
     }
     if (p.spinning) {
-      const spd = 0.25;
+      const spd = 0.21;
       p.rotation += spd * p.spinDir;
       p.spinAccum += spd;
       if (p.spinAccum >= Math.PI * 2) {

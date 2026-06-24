@@ -56,6 +56,9 @@ function PlayPage() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastIdRef = useRef(0);
+  const [musicVol, setMusicVol] = useState(0.4);
+  const [sfxVol, setSfxVol] = useState(0.7);
+  const [muted, setMuted] = useState(false);
 
   // Hydrate prefs
   useEffect(() => {
@@ -63,11 +66,17 @@ function PlayPage() {
     const savedLang = (localStorage.getItem(LANG_KEY) as Lang) || "et";
     const savedTheme = (localStorage.getItem(THEME_KEY) as Theme) || "arcade";
     const savedName = localStorage.getItem(NAME_KEY) || "";
+    const mv = parseFloat(localStorage.getItem(MUSIC_VOL_KEY) || "0.4");
+    const sv = parseFloat(localStorage.getItem(SFX_VOL_KEY) || "0.7");
+    const mu = localStorage.getItem(MUTE_KEY) === "1";
     setLang(savedLang); setTheme(savedTheme);
     setLangState(savedLang); setThemeState(savedTheme);
+    setMusicVol(mv); setSfxVol(sv); setMuted(mu);
+    Music.setMusicVolume(mv); Music.setSfxVolume(sv); Music.setMuted(mu);
     if (savedName) setName(savedName);
     else setShowNameModal(true);
   }, []);
+
 
   // Achievement toast handler
   useEffect(() => {

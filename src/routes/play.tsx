@@ -109,17 +109,18 @@ function PlayPage() {
         />
       </div>
 
-      <div className="w-full max-w-[960px] text-[10px] sm:text-xs text-pink-300/80 flex flex-wrap gap-x-4 gap-y-1 justify-center">
+      <div className="w-full max-w-[960px] text-xs sm:text-sm text-pink-300/80 flex flex-wrap gap-x-4 gap-y-1 justify-center">
         <span>WASD / Nooled — lenda</span>
         <span><span className="text-yellow-300">Tühik</span> kuulipilduja</span>
         <span><span className="text-yellow-300">J</span> laser (8 mana)</span>
         <span><span className="text-yellow-300">K</span> pomm (20 mana)</span>
+        <span><span className="text-yellow-300">B</span> A-pomm (50 mana — hävitab kõik!)</span>
         <span><span className="text-yellow-300">Q/E</span> tünnirull (trikk)</span>
         <span><span className="text-yellow-300">P</span> paus</span>
         <span><span className="text-yellow-300">R</span> uuesti</span>
       </div>
 
-      <Link to="/" className="text-cyan-300 hover:text-pink-400 text-xs underline">← tagasi menüüsse</Link>
+      <Link to="/" className="text-cyan-300 hover:text-pink-400 text-sm underline">← tagasi menüüsse</Link>
     </div>
   );
 }

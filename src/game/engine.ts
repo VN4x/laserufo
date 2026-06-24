@@ -217,32 +217,35 @@ export class Game {
   getLevel() { return Math.floor((this.wave - 1) / 5) + 1; }
 
   spawnEnemy(kind: Enemy["kind"], y?: number, variant?: BossVariant) {
-
+    const level = this.getLevel();
     const yy = y ?? 40 + Math.random() * (VH - 80);
     if (kind === "ufo") {
       this.enemies.push({
         pos: { x: VW + 20, y: yy }, vel: { x: -(1.0 + Math.random() * 0.7), y: 0 },
         w: 23, h: 13, alive: true, kind, hp: 1, maxHp: 1, shootCool: 60 + Math.random() * 60,
-        age: 0, baseY: yy, amp: 20 + Math.random() * 20,
+        age: 0, baseY: yy, amp: 20 + Math.random() * 20, level,
       });
     } else if (kind === "bomber") {
       this.enemies.push({
         pos: { x: VW + 20, y: 40 + Math.random() * 60 }, vel: { x: -0.6, y: 0 },
         w: 29, h: 16, alive: true, kind, hp: 2, maxHp: 2, shootCool: 90,
-        age: 0, baseY: 0, amp: 0,
+        age: 0, baseY: 0, amp: 0, level,
       });
     } else if (kind === "mother") {
       this.enemies.push({
         pos: { x: VW + 30, y: yy }, vel: { x: -0.42, y: 0 },
         w: 42, h: 21, alive: true, kind, hp: 5, maxHp: 5, shootCool: 70,
-        age: 0, baseY: yy, amp: 10,
+        age: 0, baseY: yy, amp: 10, level,
       });
     } else {
+      const hp = 40 + this.wave * 5;
       this.enemies.push({
         pos: { x: VW + 50, y: VH / 2 }, vel: { x: -0.25, y: 0 },
-        w: 78, h: 47, alive: true, kind, hp: 40 + this.wave * 5, maxHp: 40 + this.wave * 5,
+        w: 78, h: 47, alive: true, kind, hp, maxHp: hp,
         shootCool: 40, age: 0, baseY: VH / 2, amp: 40,
+        variant: variant ?? "saucer", level,
       });
+
     }
   }
 

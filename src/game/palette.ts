@@ -21,7 +21,9 @@ export interface Palette {
   gameOver: string; gameOverSub: string; pause: string;
   hudAccent: string;
   scanline: string;
+  levelTints: string[];
 }
+
 
 export const PALETTES: Record<Theme, Palette> = {
   arcade: {
@@ -44,7 +46,9 @@ export const PALETTES: Record<Theme, Palette> = {
     gameOver: "#ff4fd8", gameOverSub: "#7cf0ff", pause: "#ffd84d",
     hudAccent: "#ff4fd8",
     scanline: "rgba(0,0,0,0.15)",
+    levelTints: ["#ff4fd8", "#7cffb0", "#ffd84d", "#7cf0ff", "#ff6a3d"],
   },
+
   terminal: {
     skyTop: "#000000", skyMid: "#050505", skyBot: "#0a0a0a",
     mountain: "#1a1a1a", ground: "#00ff41", sun: "#cccccc",
@@ -65,7 +69,9 @@ export const PALETTES: Record<Theme, Palette> = {
     gameOver: "#00ff41", gameOverSub: "#ffffff", pause: "#00ff41",
     hudAccent: "#00ff41",
     scanline: "rgba(0,255,65,0.06)",
+    levelTints: ["#00ff41", "#ffffff", "#aaaaaa", "#66ff88", "#444444"],
   },
+
 };
 
 let _theme: Theme = "arcade";

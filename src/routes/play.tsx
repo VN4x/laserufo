@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Game, VW, VH, type GameStats } from "../game/engine";
-import { setTheme, getTheme, type Theme } from "../game/palette";
-import { setLang, getLang, ui, type Lang } from "../game/i18n";
+import { setTheme, type Theme } from "../game/palette";
+import { setLang, ui, type Lang } from "../game/i18n";
 import { onAchievement, getAchievementInfo, type AchKey } from "../game/achievements";
+import { Music } from "../game/music";
+
 
 export const Route = createFileRoute("/play")({
   ssr: false,
@@ -22,6 +24,10 @@ const HS_KEY = "f16fury_highscores_v2";
 const NAME_KEY = "f16fury_player_name";
 const LANG_KEY = "f16fury_lang";
 const THEME_KEY = "f16fury_theme";
+const MUSIC_VOL_KEY = "f16fury_music_vol";
+const SFX_VOL_KEY = "f16fury_sfx_vol";
+const MUTE_KEY = "f16fury_muted";
+
 
 type Score = { name: string; score: number; wave: number; date: string };
 
@@ -50,6 +56,9 @@ function PlayPage() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastIdRef = useRef(0);
+  const [musicVol, setMusicVol] = useState(0.4);
+  const [sfxVol, setSfxVol] = useState(0.7);
+  const [muted, setMuted] = useState(false);
 
   // Hydrate prefs
   useEffect(() => {
@@ -57,11 +66,17 @@ function PlayPage() {
     const savedLang = (localStorage.getItem(LANG_KEY) as Lang) || "et";
     const savedTheme = (localStorage.getItem(THEME_KEY) as Theme) || "arcade";
     const savedName = localStorage.getItem(NAME_KEY) || "";
+    const mv = parseFloat(localStorage.getItem(MUSIC_VOL_KEY) || "0.4");
+    const sv = parseFloat(localStorage.getItem(SFX_VOL_KEY) || "0.7");
+    const mu = localStorage.getItem(MUTE_KEY) === "1";
     setLang(savedLang); setTheme(savedTheme);
     setLangState(savedLang); setThemeState(savedTheme);
+    setMusicVol(mv); setSfxVol(sv); setMuted(mu);
+    Music.setMusicVolume(mv); Music.setSfxVolume(sv); Music.setMuted(mu);
     if (savedName) setName(savedName);
     else setShowNameModal(true);
   }, []);
+
 
   // Achievement toast handler
   useEffect(() => {
@@ -101,7 +116,9 @@ function PlayPage() {
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
+      Music.stop();
     };
+
   }, []);
 
   useEffect(() => {
@@ -127,6 +144,19 @@ function PlayPage() {
     setTheme(t); setThemeState(t);
     if (typeof window !== "undefined") localStorage.setItem(THEME_KEY, t);
   };
+  const changeMusicVol = (v: number) => {
+    setMusicVol(v); Music.setMusicVolume(v);
+    if (typeof window !== "undefined") localStorage.setItem(MUSIC_VOL_KEY, String(v));
+  };
+  const changeSfxVol = (v: number) => {
+    setSfxVol(v); Music.setSfxVolume(v);
+    if (typeof window !== "undefined") localStorage.setItem(SFX_VOL_KEY, String(v));
+  };
+  const toggleMute = () => {
+    const m = !muted; setMuted(m); Music.setMuted(m);
+    if (typeof window !== "undefined") localStorage.setItem(MUTE_KEY, m ? "1" : "0");
+  };
+
 
   const submitName = (val: string) => {
     const clean = val.trim().slice(0, 16) || ui().namePlaceholder;
@@ -175,6 +205,38 @@ function PlayPage() {
         </div>
       </div>
 
+      {/* Audio controls */}
+      <div className="w-full max-w-[960px] flex flex-wrap items-center justify-end gap-4 text-xs">
+        <label className="flex items-center gap-2">
+          <span style={{ color: accent }}>{u.music}</span>
+          <input
+            type="range" min={0} max={1} step={0.05}
+            value={musicVol}
+            onChange={(e) => changeMusicVol(parseFloat(e.target.value))}
+            className="w-24 accent-current"
+            style={{ accentColor: accent2 }}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span style={{ color: accent }}>{u.sfx}</span>
+          <input
+            type="range" min={0} max={1} step={0.05}
+            value={sfxVol}
+            onChange={(e) => changeSfxVol(parseFloat(e.target.value))}
+            className="w-24"
+            style={{ accentColor: accent2 }}
+          />
+        </label>
+        <button
+          onClick={toggleMute}
+          className="px-2 py-0.5 border hover:opacity-80"
+          style={{ borderColor: accent, color: accent }}
+        >
+          {muted ? `♪ ${u.unmute}` : `✕ ${u.mute}`}
+        </button>
+      </div>
+
+
       {/* HUD */}
       <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-sm sm:text-base">
         <div className="flex items-center gap-2">
@@ -198,9 +260,11 @@ function PlayPage() {
           {hasShield && <span className="text-xs" style={{ color: accent2 }} title="shield ready">◈</span>}
         </div>
         <div className="flex justify-end gap-4">
+          <span><span style={{ color: accent }}>{u.level}</span> {Math.floor((stats.wave - 1) / 5) + 1}</span>
           <span><span style={{ color: accent }}>{u.wave}</span> {stats.wave}</span>
           <span><span style={{ color: accent }}>{u.score}</span> {stats.score.toString().padStart(6, "0")}</span>
         </div>
+
       </div>
 
       <div

@@ -3,6 +3,11 @@
 import { P } from "./palette";
 import { t } from "./i18n";
 import { unlock, bumpAbomb } from "./achievements";
+import { Music } from "./music";
+
+export type BossVariant = "saucer" | "insect" | "monster" | "spectre";
+const BOSS_CYCLE: BossVariant[] = ["saucer", "insect", "monster", "spectre"];
+
 
 export const VW = 480;
 export const VH = 270;
@@ -40,7 +45,10 @@ interface Enemy extends Entity {
   age: number;
   baseY: number;
   amp: number;
+  variant?: BossVariant;
+  level?: number;
 }
+
 
 interface Projectile extends Entity {
   damage: number;
@@ -97,7 +105,7 @@ export class Game {
 
   wave = 0;
   waveTimer = 0;
-  spawnQueue: Array<{ t: number; kind: Enemy["kind"]; y?: number }> = [];
+  spawnQueue: Array<{ t: number; kind: Enemy["kind"]; y?: number; variant?: BossVariant }> = [];
   score = 0;
   kills = 0;
   killTimes: number[] = [];
@@ -146,6 +154,8 @@ export class Game {
     this.score = 0;
     this.kills = 0;
     this.gameOver = false;
+    Music.stop();
+
     this.shake = 0;
     this.time = 0;
     this.comboCount = 0;
@@ -175,12 +185,17 @@ export class Game {
     }
     this.hitsThisWave = 0;
 
+    const prevWave = this.wave;
     this.wave++;
     if (this.wave >= 5) unlock("wave_5");
     const isBoss = this.wave % 5 === 0;
+    const level = this.getLevel();
     this.spawnQueue = [];
     if (isBoss) {
-      this.spawnQueue.push({ t: 1, kind: "boss" });
+      const variant = BOSS_CYCLE[(Math.floor((this.wave - 5) / 5)) % BOSS_CYCLE.length];
+      this.spawnQueue.push({ t: 1, kind: "boss", variant });
+      Music.play("boss");
+      this.audio.alarm();
     } else {
       const count = 4 + Math.floor(this.wave * 1.5);
       for (let i = 0; i < count; i++) {
@@ -188,41 +203,51 @@ export class Game {
         const kind: Enemy["kind"] = r < 0.65 ? "ufo" : r < 0.85 ? "bomber" : "mother";
         this.spawnQueue.push({ t: i * 0.8 + 0.5, kind, y: 40 + Math.random() * (VH - 80) });
       }
+      Music.play("battle");
+      if (prevWave > 0) this.audio.waveClear();
     }
     this.waveTimer = 0;
     this.floats.push({
       x: VW / 2 - 30, y: VH / 2 - 20, vy: -0.2, life: 90,
-      text: isBoss ? `${t().bossWave} ${this.wave}` : `${t().wave} ${this.wave}`,
+      text: isBoss
+        ? `${t().bossWave} ${this.wave} — LVL ${level}`
+        : `${t().wave} ${this.wave} — LVL ${level}`,
       color: P().hudAccent,
     });
   }
 
-  spawnEnemy(kind: Enemy["kind"], y?: number) {
+  getLevel() { return Math.floor((this.wave - 1) / 5) + 1; }
+
+  spawnEnemy(kind: Enemy["kind"], y?: number, variant?: BossVariant) {
+    const level = this.getLevel();
     const yy = y ?? 40 + Math.random() * (VH - 80);
     if (kind === "ufo") {
       this.enemies.push({
         pos: { x: VW + 20, y: yy }, vel: { x: -(1.0 + Math.random() * 0.7), y: 0 },
         w: 23, h: 13, alive: true, kind, hp: 1, maxHp: 1, shootCool: 60 + Math.random() * 60,
-        age: 0, baseY: yy, amp: 20 + Math.random() * 20,
+        age: 0, baseY: yy, amp: 20 + Math.random() * 20, level,
       });
     } else if (kind === "bomber") {
       this.enemies.push({
         pos: { x: VW + 20, y: 40 + Math.random() * 60 }, vel: { x: -0.6, y: 0 },
         w: 29, h: 16, alive: true, kind, hp: 2, maxHp: 2, shootCool: 90,
-        age: 0, baseY: 0, amp: 0,
+        age: 0, baseY: 0, amp: 0, level,
       });
     } else if (kind === "mother") {
       this.enemies.push({
         pos: { x: VW + 30, y: yy }, vel: { x: -0.42, y: 0 },
         w: 42, h: 21, alive: true, kind, hp: 5, maxHp: 5, shootCool: 70,
-        age: 0, baseY: yy, amp: 10,
+        age: 0, baseY: yy, amp: 10, level,
       });
     } else {
+      const hp = 40 + this.wave * 5;
       this.enemies.push({
         pos: { x: VW + 50, y: VH / 2 }, vel: { x: -0.25, y: 0 },
-        w: 78, h: 47, alive: true, kind, hp: 40 + this.wave * 5, maxHp: 40 + this.wave * 5,
+        w: 78, h: 47, alive: true, kind, hp, maxHp: hp,
         shootCool: 40, age: 0, baseY: VH / 2, amp: 40,
+        variant: variant ?? "saucer", level,
       });
+
     }
   }
 
@@ -288,6 +313,8 @@ export class Game {
       unlock("boss_down");
       this.player.lives++;
       this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: t().plusLife, color: "#7cffb0" });
+      this.audio.powerup();
+      Music.play("battle");
     }
     this.audio.boom();
   }
@@ -300,8 +327,10 @@ export class Game {
       this.player.mana = 0;
       this.player.lives++;
       this.floats.push({ x: this.player.pos.x - 18, y: this.player.pos.y - 18, vy: -0.4, life: 80, text: t().plusLife, color: "#7cffb0" });
+      this.audio.powerup();
     }
   }
+
 
   updatePlayer(dt: number) {
     const p = this.player;
@@ -532,7 +561,9 @@ export class Game {
     if (p.lives <= 0) {
       this.gameOver = true;
       this.audio.gameOver();
+      Music.stop();
     }
+
   }
 
   explode(x: number, y: number, count: number) {
@@ -565,7 +596,7 @@ export class Game {
     this.waveTimer += dt;
     while (this.spawnQueue.length && this.spawnQueue[0].t <= this.waveTimer) {
       const s = this.spawnQueue.shift()!;
-      this.spawnEnemy(s.kind, s.y);
+      this.spawnEnemy(s.kind, s.y, s.variant);
     }
     if (this.spawnQueue.length === 0 && this.enemies.length === 0) {
       this.startNextWave();
@@ -775,30 +806,118 @@ export class Game {
       }
       ctx.globalAlpha = 1;
     } else if (e.kind === "boss") {
-      ctx.fillStyle = pal.bossTop;
-      ctx.fillRect(-30, -8, 60, 16);
-      ctx.fillStyle = pal.bossBot;
-      ctx.fillRect(-30, 8, 60, 8);
-      ctx.fillStyle = pal.bossDome;
-      ctx.fillRect(-16, -14, 32, 6);
-      ctx.fillStyle = pal.laserCore;
-      ctx.fillRect(-12, -12, 4, 2);
-      ctx.fillRect(8, -12, 4, 2);
+      this.drawBoss(e);
+    }
+    // Level-based tint overlay (cosmetic) for non-boss enemies
+    if (e.kind !== "boss") {
+      const tints = pal.levelTints;
+      const lvl = (e.level ?? 1) - 1;
+      if (tints && tints.length && lvl > 0) {
+        const tint = tints[lvl % tints.length];
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = tint;
+        ctx.fillRect(-22, -8, 44, 22);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+    }
+    ctx.restore();
+  }
+
+
+  drawBoss(e: Enemy) {
+    const ctx = this.ctx;
+    const pal = P();
+    const v: BossVariant = e.variant ?? "saucer";
+    const hpFrac = e.hp / e.maxHp;
+    // HP bar (common)
+    const renderHp = () => {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(-30, -26, 60, 3);
+      ctx.fillStyle = pal.bossHp;
+      ctx.fillRect(-30, -26, Math.floor(60 * hpFrac), 3);
+    };
+    if (v === "saucer") {
+      ctx.fillStyle = pal.bossTop; ctx.fillRect(-30, -8, 60, 16);
+      ctx.fillStyle = pal.bossBot; ctx.fillRect(-30, 8, 60, 8);
+      ctx.fillStyle = pal.bossDome; ctx.fillRect(-16, -14, 32, 6);
+      ctx.fillStyle = pal.laserCore; ctx.fillRect(-12, -12, 4, 2); ctx.fillRect(8, -12, 4, 2);
       ctx.fillStyle = pal.bossLight;
       for (let i = 0; i < 6; i++) {
         const on = Math.floor(e.age * 8 + i) % 2 === 0;
         ctx.globalAlpha = on ? 1 : 0.3;
         ctx.fillRect(-24 + i * 10, 16, 3, 2);
       }
+    } else if (v === "insect") {
+      // Segmented body
+      ctx.fillStyle = pal.bossBot;
+      for (let i = -2; i <= 2; i++) ctx.fillRect(i * 10 - 4, -6, 8, 12);
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-30, -2, 60, 4);
+      // Wings flap
+      const flap = Math.sin(e.age * 10) * 4;
+      ctx.fillStyle = pal.bossDome;
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(-18, -16 - flap, 16, 6);
+      ctx.fillRect(2, -16 - flap, 16, 6);
       ctx.globalAlpha = 1;
+      // Head + mandibles + eyes
+      ctx.fillStyle = pal.bossTop; ctx.fillRect(22, -6, 12, 12);
+      ctx.fillStyle = pal.laserCore; ctx.fillRect(26, -4, 3, 3); ctx.fillRect(26, 1, 3, 3);
+      ctx.fillStyle = pal.bossLight;
+      ctx.fillRect(34, -7, 3, 2); ctx.fillRect(34, 5, 3, 2);
+      // Antennae
+      ctx.fillStyle = pal.bossLight;
+      ctx.fillRect(28, -12, 1, 4); ctx.fillRect(32, -12, 1, 4);
+    } else if (v === "monster") {
+      // Lumpy bulb body
+      ctx.fillStyle = pal.bossBot;
+      ctx.fillRect(-26, -10, 52, 22);
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-22, -14, 44, 8);
+      // Spikes on top
+      ctx.fillStyle = pal.bossDome;
+      for (let i = 0; i < 6; i++) ctx.fillRect(-20 + i * 8, -18, 3, 4);
+      // Big eyes
+      ctx.fillStyle = pal.laserCore;
+      ctx.fillRect(-14, -4, 6, 6); ctx.fillRect(8, -4, 6, 6);
       ctx.fillStyle = "#000";
-      ctx.fillRect(-30, -22, 60, 3);
-      ctx.fillStyle = pal.bossHp;
-      ctx.fillRect(-30, -22, Math.floor(60 * e.hp / e.maxHp), 3);
+      const blink = Math.floor(e.age * 2) % 8 === 0 ? 1 : 0;
+      ctx.fillRect(-12, -2 + blink, 2, 2); ctx.fillRect(10, -2 + blink, 2, 2);
+      // Jagged teeth
+      ctx.fillStyle = pal.bossLight;
+      for (let i = 0; i < 8; i++) {
+        const x = -22 + i * 6;
+        ctx.fillRect(x, 8, 2, 3 + (i % 2) * 2);
+      }
+    } else if (v === "spectre") {
+      // Wispy ghost — translucent
+      ctx.globalAlpha = 0.55 + Math.sin(e.age * 4) * 0.1;
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-24, -12, 48, 22);
+      ctx.fillStyle = pal.bossBot;
+      // Tattered bottom
+      for (let i = 0; i < 8; i++) {
+        const h = 4 + (i % 2) * 4 + Math.floor(Math.sin(e.age * 3 + i) * 2);
+        ctx.fillRect(-24 + i * 6, 10, 5, h);
+      }
+      // Hollow eyes (glowing)
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = pal.bossDome;
+      ctx.fillRect(-12, -6, 6, 6); ctx.fillRect(6, -6, 6, 6);
+      ctx.fillStyle = pal.laserCore;
+      ctx.fillRect(-10, -4, 2, 2); ctx.fillRect(8, -4, 2, 2);
+      // Crown halo
+      ctx.fillStyle = pal.bossLight;
+      ctx.globalAlpha = 0.7;
+      for (let i = 0; i < 9; i++) ctx.fillRect(-20 + i * 5, -16, 2, 3);
     }
-    ctx.restore();
+    renderHp();
   }
 }
+
 
 function rectsHit(a: { pos: Vec; w: number; h: number }, b: { pos: Vec; w: number; h: number }) {
   return a.pos.x < b.pos.x + b.w / 2 + a.w / 2 &&
@@ -807,21 +926,31 @@ function rectsHit(a: { pos: Vec; w: number; h: number }, b: { pos: Vec; w: numbe
     a.pos.y + a.h / 2 > b.pos.y - b.h / 2;
 }
 
-// Web Audio chiptune
+// Web Audio chiptune — routed through Music's sfx gain for volume control
 class AudioCtx {
-  ac: AudioContext | null = null;
-  ensure() {
-    if (!this.ac) {
-      try { this.ac = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)(); } catch { /* ignore */ }
-    }
-    return this.ac;
+  ensure(): AudioContext | null { return Music.ensure(); }
+  private dest(): AudioNode | null {
+    const ac = this.ensure(); if (!ac) return null;
+    return Music.getSfxNode() ?? ac.destination;
   }
   beep(freq: number, dur: number, type: OscillatorType = "square", vol = 0.05) {
-    const ac = this.ensure(); if (!ac) return;
+    const ac = this.ensure(); const d = this.dest(); if (!ac || !d) return;
     const o = ac.createOscillator(); const g = ac.createGain();
     o.type = type; o.frequency.value = freq;
     g.gain.value = vol;
-    o.connect(g); g.connect(ac.destination);
+    o.connect(g); g.connect(d);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+    o.stop(ac.currentTime + dur);
+  }
+  sweep(f0: number, f1: number, dur: number, type: OscillatorType = "sawtooth", vol = 0.06) {
+    const ac = this.ensure(); const d = this.dest(); if (!ac || !d) return;
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), ac.currentTime + dur);
+    g.gain.value = vol;
+    o.connect(g); g.connect(d);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
     o.stop(ac.currentTime + dur);
@@ -836,4 +965,8 @@ class AudioCtx {
   whoosh(){ this.beep(440, 0.18, "sine", 0.04); }
   gameOver(){ [440,330,220,150].forEach((f,i)=>setTimeout(()=>this.beep(f,0.25,"square",0.06), i*180)); }
   aBomb(){ this.beep(90,0.5,"sawtooth",0.09); this.beep(60,0.6,"square",0.07); setTimeout(()=>this.beep(140,0.3,"square",0.06),120); }
+  alarm() { [0,180,360].forEach(d => setTimeout(() => { this.beep(880, 0.15, "square", 0.06); this.beep(660, 0.15, "square", 0.05); }, d)); }
+  waveClear() { [523, 659, 784, 1046].forEach((f,i) => setTimeout(()=>this.beep(f, 0.12, "triangle", 0.06), i*70)); }
+  powerup() { this.sweep(440, 1760, 0.25, "square", 0.05); }
 }
+

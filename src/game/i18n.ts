@@ -95,7 +95,13 @@ export interface UI {
   unlocked: string;
   newAchievement: string;
   insertCoin: string;
+  music: string;
+  sfx: string;
+  mute: string;
+  unmute: string;
+  level: string;
 }
+
 
 export const UI_DICT: Record<Lang, UI> = {
   et: {
@@ -125,6 +131,8 @@ export const UI_DICT: Record<Lang, UI> = {
     unlocked: "lukust lahti",
     newAchievement: "UUS SAAVUTUS",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
+    music: "Muusika", sfx: "Helid", mute: "Vaigista", unmute: "Heli sisse", level: "TASE",
+
   },
   en: {
     lives: "LIVES", mana: "MANA", wave: "WAVE", score: "SCORE",
@@ -153,6 +161,8 @@ export const UI_DICT: Record<Lang, UI> = {
     unlocked: "unlocked",
     newAchievement: "NEW ACHIEVEMENT",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
+    music: "Music", sfx: "SFX", mute: "Mute", unmute: "Unmute", level: "LEVEL",
+
   },
 };
 

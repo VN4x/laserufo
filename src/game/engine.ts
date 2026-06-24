@@ -313,7 +313,7 @@ export class Game {
     // Fire weapons
     if (this.input.mg && p.mgCool <= 0) {
       this.projectiles.push({
-        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 6, y: 0 },
+        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 5.1, y: 0 },
         w: 5, h: 2, alive: true, damage: 1, fromPlayer: true, kind: "bullet", life: 80,
       });
       p.mgCool = 6;
@@ -322,7 +322,7 @@ export class Game {
     if (this.input.laser && p.laserCool <= 0 && p.mana >= 8) {
       p.mana -= 8;
       this.projectiles.push({
-        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 9, y: 0 },
+        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 7.65, y: 0 },
         w: 30, h: 3, alive: true, damage: 5, fromPlayer: true, kind: "laser", life: 60,
       });
       p.laserCool = 18;
@@ -331,11 +331,40 @@ export class Game {
     if (this.input.bomb && p.bombCool <= 0 && p.mana >= 20) {
       p.mana -= 20;
       this.projectiles.push({
-        pos: { x: p.pos.x + 10, y: p.pos.y + 6 }, vel: { x: 2, y: 1.5 },
+        pos: { x: p.pos.x + 10, y: p.pos.y + 6 }, vel: { x: 1.7, y: 1.27 },
         w: 6, h: 8, alive: true, damage: 30, fromPlayer: true, kind: "bomb", life: 200,
       });
       p.bombCool = 30;
       this.audio.drop();
+    }
+    // A-BOMB: wipe all enemies on screen
+    if (this.input.abomb && p.mana >= 50) {
+      p.mana -= 50;
+      this.input.abomb = false;
+      this.shake = 22;
+      this.audio.aBomb();
+      this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: "A-BOMB!", color: "#ffd84d" });
+      // flash explosions across screen
+      for (let i = 0; i < 14; i++) {
+        this.explode(40 + Math.random() * (VW - 80), 20 + Math.random() * (VH - 60), 18);
+      }
+      for (const e of this.enemies) {
+        if (!e.alive) continue;
+        if (e.pos.x < VW + 10 && e.pos.x > -10) {
+          if (e.kind === "boss") {
+            e.hp -= 25;
+            this.explode(e.pos.x, e.pos.y, 30);
+            if (e.hp <= 0) { e.alive = false; this.registerKill(e, false); }
+          } else {
+            e.alive = false;
+            this.registerKill(e, false);
+          }
+        }
+      }
+      // also wipe enemy projectiles
+      for (const pr of this.projectiles) {
+        if (!pr.fromPlayer) pr.alive = false;
+      }
     }
 
     // Near-miss detection

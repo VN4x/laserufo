@@ -100,6 +100,17 @@ export interface UI {
   mute: string;
   unmute: string;
   level: string;
+  careerStats: string;
+  bestTimes: string;
+  statGames: string;
+  statKills: string;
+  statWaves: string;
+  statBosses: string;
+  statAbombs: string;
+  statPlaytime: string;
+  statHighLevel: string;
+  statHighScore: string;
+  noBestYet: string;
 }
 
 
@@ -132,6 +143,12 @@ export const UI_DICT: Record<Lang, UI> = {
     newAchievement: "UUS SAAVUTUS",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
     music: "Muusika", sfx: "Helid", mute: "Vaigista", unmute: "Heli sisse", level: "TASE",
+    careerStats: "KARJÄÄRI STATISTIKA",
+    bestTimes: "PARIMAD TASEME AJAD",
+    statGames: "Mänge", statKills: "Tapmised", statWaves: "Lainet",
+    statBosses: "Bossi", statAbombs: "A-pomme", statPlaytime: "Aeg",
+    statHighLevel: "Kõrgeim tase", statHighScore: "Rekord",
+    noBestYet: "— pole veel aegu —",
 
   },
   en: {
@@ -162,6 +179,12 @@ export const UI_DICT: Record<Lang, UI> = {
     newAchievement: "NEW ACHIEVEMENT",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
     music: "Music", sfx: "SFX", mute: "Mute", unmute: "Unmute", level: "LEVEL",
+    careerStats: "CAREER STATS",
+    bestTimes: "BEST LEVEL TIMES",
+    statGames: "Games", statKills: "Kills", statWaves: "Waves",
+    statBosses: "Bosses", statAbombs: "A-bombs", statPlaytime: "Playtime",
+    statHighLevel: "Highest level", statHighScore: "High score",
+    noBestYet: "— no times yet —",
 
   },
 };

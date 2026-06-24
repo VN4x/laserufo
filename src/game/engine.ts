@@ -154,6 +154,8 @@ export class Game {
     this.score = 0;
     this.kills = 0;
     this.gameOver = false;
+    Music.stop();
+
     this.shake = 0;
     this.time = 0;
     this.comboCount = 0;

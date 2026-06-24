@@ -4,6 +4,7 @@ import { P } from "./palette";
 import { t } from "./i18n";
 import { unlock, bumpAbomb } from "./achievements";
 import { Music } from "./music";
+import { recordRun, recordLevelTime } from "./stats";
 
 export type BossVariant = "saucer" | "insect" | "monster" | "spectre";
 const BOSS_CYCLE: BossVariant[] = ["saucer", "insect", "monster", "spectre"];
@@ -70,10 +71,13 @@ interface FloatText {
 export interface GameStats {
   score: number;
   wave: number;
+  level: number;
+  levelTime: number;
   lives: number;
   mana: number;
   maxMana: number;
   kills: number;
+  bosses: number;
   gameOver: boolean;
   paused: boolean;
 }
@@ -118,6 +122,10 @@ export class Game {
   comboCount = 0;
   comboTimer = 0;
   hitsThisWave = 0;
+  bossesKilled = 0;
+  abombsThisRun = 0;
+  levelStartedAt = 0;
+  runRecorded = false;
 
   constructor(ctx: CanvasRenderingContext2D, onStats: (s: GameStats) => void) {
     this.ctx = ctx;

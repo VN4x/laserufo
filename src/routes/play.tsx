@@ -78,14 +78,14 @@ function PlayPage() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-black text-white font-mono p-4 gap-3">
       {/* HUD */}
-      <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-xs sm:text-sm">
+      <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-sm sm:text-base">
         <div className="flex items-center gap-2">
           <span className="text-pink-400">LIVES</span>
-          <span className="text-yellow-300 text-lg">{"♥".repeat(Math.max(0, stats.lives))}</span>
+          <span className="text-yellow-300 text-xl">{"♥".repeat(Math.max(0, stats.lives))}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-cyan-300">MANA</span>
-          <div className="flex-1 h-3 border border-cyan-300/60 bg-cyan-950/40 relative overflow-hidden">
+          <div className="flex-1 h-4 border border-cyan-300/60 bg-cyan-950/40 relative overflow-hidden">
             <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-400 transition-[width] duration-100" style={{ width: `${manaPct}%` }} />
           </div>
           <span className="text-cyan-200 w-10 text-right">{stats.mana}</span>
@@ -109,17 +109,18 @@ function PlayPage() {
         />
       </div>
 
-      <div className="w-full max-w-[960px] text-[10px] sm:text-xs text-pink-300/80 flex flex-wrap gap-x-4 gap-y-1 justify-center">
+      <div className="w-full max-w-[960px] text-xs sm:text-sm text-pink-300/80 flex flex-wrap gap-x-4 gap-y-1 justify-center">
         <span>WASD / Nooled — lenda</span>
         <span><span className="text-yellow-300">Tühik</span> kuulipilduja</span>
         <span><span className="text-yellow-300">J</span> laser (8 mana)</span>
         <span><span className="text-yellow-300">K</span> pomm (20 mana)</span>
+        <span><span className="text-yellow-300">B</span> A-pomm (50 mana — hävitab kõik!)</span>
         <span><span className="text-yellow-300">Q/E</span> tünnirull (trikk)</span>
         <span><span className="text-yellow-300">P</span> paus</span>
         <span><span className="text-yellow-300">R</span> uuesti</span>
       </div>
 
-      <Link to="/" className="text-cyan-300 hover:text-pink-400 text-xs underline">← tagasi menüüsse</Link>
+      <Link to="/" className="text-cyan-300 hover:text-pink-400 text-sm underline">← tagasi menüüsse</Link>
     </div>
   );
 }

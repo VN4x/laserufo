@@ -69,9 +69,11 @@ export interface GameStats {
 
 interface Input {
   up: boolean; down: boolean; left: boolean; right: boolean;
-  mg: boolean; laser: boolean; bomb: boolean;
+  mg: boolean; laser: boolean; bomb: boolean; abomb: boolean;
   trickL: boolean; trickR: boolean;
 }
+
+const ENT_SCALE = 1.3;
 
 export class Game {
   ctx: CanvasRenderingContext2D;
@@ -85,7 +87,7 @@ export class Game {
 
   input: Input = {
     up: false, down: false, left: false, right: false,
-    mg: false, laser: false, bomb: false, trickL: false, trickR: false,
+    mg: false, laser: false, bomb: false, abomb: false, trickL: false, trickR: false,
   };
 
   wave = 0;
@@ -120,7 +122,7 @@ export class Game {
     this.player = {
       pos: { x: 80, y: VH / 2 },
       vel: { x: 0, y: 0 },
-      w: 24, h: 10,
+      w: 31, h: 13,
       alive: true,
       hp: 3, lives: 3,
       mana: 0, maxMana: 100,
@@ -181,26 +183,26 @@ export class Game {
     const yy = y ?? 40 + Math.random() * (VH - 80);
     if (kind === "ufo") {
       this.enemies.push({
-        pos: { x: VW + 20, y: yy }, vel: { x: -1.2 - Math.random() * 0.8, y: 0 },
-        w: 18, h: 10, alive: true, kind, hp: 1, maxHp: 1, shootCool: 60 + Math.random() * 60,
+        pos: { x: VW + 20, y: yy }, vel: { x: -(1.0 + Math.random() * 0.7), y: 0 },
+        w: 23, h: 13, alive: true, kind, hp: 1, maxHp: 1, shootCool: 60 + Math.random() * 60,
         age: 0, baseY: yy, amp: 20 + Math.random() * 20,
       });
     } else if (kind === "bomber") {
       this.enemies.push({
-        pos: { x: VW + 20, y: 40 + Math.random() * 60 }, vel: { x: -0.7, y: 0 },
-        w: 22, h: 12, alive: true, kind, hp: 2, maxHp: 2, shootCool: 90,
+        pos: { x: VW + 20, y: 40 + Math.random() * 60 }, vel: { x: -0.6, y: 0 },
+        w: 29, h: 16, alive: true, kind, hp: 2, maxHp: 2, shootCool: 90,
         age: 0, baseY: 0, amp: 0,
       });
     } else if (kind === "mother") {
       this.enemies.push({
-        pos: { x: VW + 30, y: yy }, vel: { x: -0.5, y: 0 },
-        w: 32, h: 16, alive: true, kind, hp: 5, maxHp: 5, shootCool: 70,
+        pos: { x: VW + 30, y: yy }, vel: { x: -0.42, y: 0 },
+        w: 42, h: 21, alive: true, kind, hp: 5, maxHp: 5, shootCool: 70,
         age: 0, baseY: yy, amp: 10,
       });
     } else {
       this.enemies.push({
-        pos: { x: VW + 50, y: VH / 2 }, vel: { x: -0.3, y: 0 },
-        w: 60, h: 36, alive: true, kind, hp: 40 + this.wave * 5, maxHp: 40 + this.wave * 5,
+        pos: { x: VW + 50, y: VH / 2 }, vel: { x: -0.25, y: 0 },
+        w: 78, h: 47, alive: true, kind, hp: 40 + this.wave * 5, maxHp: 40 + this.wave * 5,
         shootCool: 40, age: 0, baseY: VH / 2, amp: 40,
       });
     }
@@ -215,6 +217,7 @@ export class Game {
     else if (key === " " || key === "spacebar") this.input.mg = down;
     else if (key === "j") this.input.laser = down;
     else if (key === "k") this.input.bomb = down;
+    else if (key === "b") this.input.abomb = down;
     else if (key === "q") this.input.trickL = down;
     else if (key === "e") this.input.trickR = down;
     else if (key === "p" && down) this.paused = !this.paused;
@@ -276,13 +279,13 @@ export class Game {
 
   updatePlayer(dt: number) {
     const p = this.player;
-    const speed = 2.2;
+    const speed = 1.87;
     p.vel.x = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
     p.vel.y = (this.input.down ? 1 : 0) - (this.input.up ? 1 : 0);
     p.pos.x += p.vel.x * speed;
     p.pos.y += p.vel.y * speed;
-    p.pos.x = Math.max(10, Math.min(VW - 30, p.pos.x));
-    p.pos.y = Math.max(15, Math.min(VH - 30, p.pos.y));
+    p.pos.x = Math.max(10, Math.min(VW - 36, p.pos.x));
+    p.pos.y = Math.max(15, Math.min(VH - 32, p.pos.y));
 
     // Trick: barrel roll / loop
     if ((this.input.trickL || this.input.trickR) && !p.spinning) {
@@ -292,7 +295,7 @@ export class Game {
       this.audio.whoosh();
     }
     if (p.spinning) {
-      const spd = 0.25;
+      const spd = 0.21;
       p.rotation += spd * p.spinDir;
       p.spinAccum += spd;
       if (p.spinAccum >= Math.PI * 2) {
@@ -310,7 +313,7 @@ export class Game {
     // Fire weapons
     if (this.input.mg && p.mgCool <= 0) {
       this.projectiles.push({
-        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 6, y: 0 },
+        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 5.1, y: 0 },
         w: 5, h: 2, alive: true, damage: 1, fromPlayer: true, kind: "bullet", life: 80,
       });
       p.mgCool = 6;
@@ -319,7 +322,7 @@ export class Game {
     if (this.input.laser && p.laserCool <= 0 && p.mana >= 8) {
       p.mana -= 8;
       this.projectiles.push({
-        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 9, y: 0 },
+        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 7.65, y: 0 },
         w: 30, h: 3, alive: true, damage: 5, fromPlayer: true, kind: "laser", life: 60,
       });
       p.laserCool = 18;
@@ -328,11 +331,40 @@ export class Game {
     if (this.input.bomb && p.bombCool <= 0 && p.mana >= 20) {
       p.mana -= 20;
       this.projectiles.push({
-        pos: { x: p.pos.x + 10, y: p.pos.y + 6 }, vel: { x: 2, y: 1.5 },
+        pos: { x: p.pos.x + 10, y: p.pos.y + 6 }, vel: { x: 1.7, y: 1.27 },
         w: 6, h: 8, alive: true, damage: 30, fromPlayer: true, kind: "bomb", life: 200,
       });
       p.bombCool = 30;
       this.audio.drop();
+    }
+    // A-BOMB: wipe all enemies on screen
+    if (this.input.abomb && p.mana >= 50) {
+      p.mana -= 50;
+      this.input.abomb = false;
+      this.shake = 22;
+      this.audio.aBomb();
+      this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: "A-BOMB!", color: "#ffd84d" });
+      // flash explosions across screen
+      for (let i = 0; i < 14; i++) {
+        this.explode(40 + Math.random() * (VW - 80), 20 + Math.random() * (VH - 60), 18);
+      }
+      for (const e of this.enemies) {
+        if (!e.alive) continue;
+        if (e.pos.x < VW + 10 && e.pos.x > -10) {
+          if (e.kind === "boss") {
+            e.hp -= 25;
+            this.explode(e.pos.x, e.pos.y, 30);
+            if (e.hp <= 0) { e.alive = false; this.registerKill(e, false); }
+          } else {
+            e.alive = false;
+            this.registerKill(e, false);
+          }
+        }
+      }
+      // also wipe enemy projectiles
+      for (const pr of this.projectiles) {
+        if (!pr.fromPlayer) pr.alive = false;
+      }
     }
 
     // Near-miss detection
@@ -375,7 +407,7 @@ export class Game {
       if (e.shootCool <= 0 && e.pos.x < VW) {
         if (e.kind === "bomber") {
           this.projectiles.push({
-            pos: { x: e.pos.x, y: e.pos.y + 8 }, vel: { x: -0.5, y: 1.5 },
+            pos: { x: e.pos.x, y: e.pos.y + 8 }, vel: { x: -0.42, y: 1.27 },
             w: 5, h: 7, alive: true, damage: 1, fromPlayer: false, kind: "bomb", life: 200,
           });
           e.shootCool = 90;
@@ -383,7 +415,7 @@ export class Game {
           const px = this.player.pos.x; const py = this.player.pos.y;
           const dx = px - e.pos.x; const dy = py - e.pos.y;
           const d = Math.hypot(dx, dy) || 1;
-          const sp = e.kind === "boss" ? 3 : 2.4;
+          const sp = e.kind === "boss" ? 2.55 : 2.04;
           this.projectiles.push({
             pos: { x: e.pos.x, y: e.pos.y }, vel: { x: dx / d * sp, y: dy / d * sp },
             w: 6, h: 6, alive: true, damage: 1, fromPlayer: false, kind: "plasma", life: 180,
@@ -599,7 +631,7 @@ export class Game {
     }
     ctx.globalAlpha = 1;
     // Floating text
-    ctx.font = "bold 8px monospace";
+    ctx.font = "bold 9px monospace";
     for (const f of this.floats) {
       ctx.fillStyle = f.color;
       ctx.fillText(f.text, f.x, f.y);
@@ -614,11 +646,11 @@ export class Game {
       ctx.fillStyle = "rgba(0,0,0,0.6)";
       ctx.fillRect(0, 0, VW, VH);
       ctx.fillStyle = "#ff4fd8";
-      ctx.font = "bold 24px monospace";
+      ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
       ctx.fillText("GAME OVER", VW / 2, VH / 2 - 10);
       ctx.fillStyle = "#7cf0ff";
-      ctx.font = "10px monospace";
+      ctx.font = "12px monospace";
       ctx.fillText(`SCORE ${this.score}  WAVE ${this.wave}`, VW / 2, VH / 2 + 10);
       ctx.fillText("press R to restart", VW / 2, VH / 2 + 26);
       ctx.textAlign = "left";
@@ -627,7 +659,7 @@ export class Game {
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(0, 0, VW, VH);
       ctx.fillStyle = "#ffd84d";
-      ctx.font = "bold 20px monospace";
+      ctx.font = "bold 23px monospace";
       ctx.textAlign = "center";
       ctx.fillText("PAUSED", VW / 2, VH / 2);
       ctx.textAlign = "left";
@@ -639,8 +671,9 @@ export class Game {
     const ctx = this.ctx;
     if (p.invuln > 0 && Math.floor(p.invuln / 4) % 2 === 0) return;
     ctx.save();
-    ctx.translate(p.pos.x + 12, p.pos.y + 5);
+    ctx.translate(p.pos.x + 16, p.pos.y + 7);
     ctx.rotate(p.rotation);
+    ctx.scale(ENT_SCALE, ENT_SCALE);
     // F16: fuselage + wings
     ctx.fillStyle = "#cfd8e8";
     ctx.fillRect(-12, -2, 22, 4); // body
@@ -662,67 +695,68 @@ export class Game {
 
   drawEnemy(e: Enemy) {
     const ctx = this.ctx;
-    const x = Math.floor(e.pos.x), y = Math.floor(e.pos.y);
+    ctx.save();
+    ctx.translate(Math.floor(e.pos.x), Math.floor(e.pos.y));
+    ctx.scale(ENT_SCALE, ENT_SCALE);
     if (e.kind === "ufo") {
       ctx.fillStyle = "#7cffb0";
-      ctx.fillRect(x - 9, y - 1, 18, 3);
+      ctx.fillRect(-9, -1, 18, 3);
       ctx.fillStyle = "#4a8a6a";
-      ctx.fillRect(x - 9, y + 2, 18, 2);
+      ctx.fillRect(-9, 2, 18, 2);
       ctx.fillStyle = "#7cf0ff";
-      ctx.fillRect(x - 4, y - 4, 8, 3);
+      ctx.fillRect(-4, -4, 8, 3);
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x - 2, y - 3, 2, 1);
-      // bottom lights
+      ctx.fillRect(-2, -3, 2, 1);
       if (Math.floor(e.age * 6) % 2) {
         ctx.fillStyle = "#ffd84d";
-        ctx.fillRect(x - 7, y + 4, 2, 1);
-        ctx.fillRect(x + 5, y + 4, 2, 1);
+        ctx.fillRect(-7, 4, 2, 1);
+        ctx.fillRect(5, 4, 2, 1);
       }
     } else if (e.kind === "bomber") {
       ctx.fillStyle = "#c46aff";
-      ctx.fillRect(x - 11, y - 2, 22, 5);
+      ctx.fillRect(-11, -2, 22, 5);
       ctx.fillStyle = "#7a3aa0";
-      ctx.fillRect(x - 11, y + 3, 22, 3);
+      ctx.fillRect(-11, 3, 22, 3);
       ctx.fillStyle = "#ffd84d";
-      ctx.fillRect(x - 8, y + 6, 2, 1);
-      ctx.fillRect(x + 6, y + 6, 2, 1);
+      ctx.fillRect(-8, 6, 2, 1);
+      ctx.fillRect(6, 6, 2, 1);
     } else if (e.kind === "mother") {
       ctx.fillStyle = "#ff6a3d";
-      ctx.fillRect(x - 16, y - 2, 32, 6);
+      ctx.fillRect(-16, -2, 32, 6);
       ctx.fillStyle = "#a03a1a";
-      ctx.fillRect(x - 16, y + 4, 32, 4);
+      ctx.fillRect(-16, 4, 32, 4);
       ctx.fillStyle = "#7cf0ff";
-      ctx.fillRect(x - 8, y - 6, 16, 4);
+      ctx.fillRect(-8, -6, 16, 4);
       ctx.fillStyle = "#ffd84d";
       const t = Math.floor(e.age * 4) % 4;
       for (let i = 0; i < 4; i++) {
         ctx.globalAlpha = i === t ? 1 : 0.4;
-        ctx.fillRect(x - 12 + i * 8, y + 8, 2, 1);
+        ctx.fillRect(-12 + i * 8, 8, 2, 1);
       }
       ctx.globalAlpha = 1;
     } else if (e.kind === "boss") {
       ctx.fillStyle = "#ff2d6a";
-      ctx.fillRect(x - 30, y - 8, 60, 16);
+      ctx.fillRect(-30, -8, 60, 16);
       ctx.fillStyle = "#7a0c2a";
-      ctx.fillRect(x - 30, y + 8, 60, 8);
+      ctx.fillRect(-30, 8, 60, 8);
       ctx.fillStyle = "#7cf0ff";
-      ctx.fillRect(x - 16, y - 14, 32, 6);
+      ctx.fillRect(-16, -14, 32, 6);
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x - 12, y - 12, 4, 2);
-      ctx.fillRect(x + 8, y - 12, 4, 2);
+      ctx.fillRect(-12, -12, 4, 2);
+      ctx.fillRect(8, -12, 4, 2);
       ctx.fillStyle = "#ffd84d";
       for (let i = 0; i < 6; i++) {
         const on = Math.floor(e.age * 8 + i) % 2 === 0;
         ctx.globalAlpha = on ? 1 : 0.3;
-        ctx.fillRect(x - 24 + i * 10, y + 16, 3, 2);
+        ctx.fillRect(-24 + i * 10, 16, 3, 2);
       }
       ctx.globalAlpha = 1;
-      // HP bar
       ctx.fillStyle = "#000";
-      ctx.fillRect(x - 30, y - 22, 60, 3);
+      ctx.fillRect(-30, -22, 60, 3);
       ctx.fillStyle = "#7cffb0";
-      ctx.fillRect(x - 30, y - 22, Math.floor(60 * e.hp / e.maxHp), 3);
+      ctx.fillRect(-30, -22, Math.floor(60 * e.hp / e.maxHp), 3);
     }
+    ctx.restore();
   }
 }
 
@@ -761,4 +795,5 @@ class AudioCtx {
   ding()  { this.beep(1760, 0.08, "triangle", 0.04); }
   whoosh(){ this.beep(440, 0.18, "sine", 0.04); }
   gameOver(){ [440,330,220,150].forEach((f,i)=>setTimeout(()=>this.beep(f,0.25,"square",0.06), i*180)); }
+  aBomb(){ this.beep(90,0.5,"sawtooth",0.09); this.beep(60,0.6,"square",0.07); setTimeout(()=>this.beep(140,0.3,"square",0.06),120); }
 }

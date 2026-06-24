@@ -334,6 +334,7 @@ export class Game {
     this.shake = e.kind === "boss" ? 14 : 4;
     if (e.kind === "boss") {
       unlock("boss_down");
+      this.bossesKilled++;
       this.player.lives++;
       this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: t().plusLife, color: "#7cffb0" });
       this.audio.powerup();

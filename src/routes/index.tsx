@@ -201,8 +201,54 @@ function Index() {
           </ul>
         </div>
 
-        <p className="text-xs text-center opacity-40" style={{ color: accent }}>© 1986 LOVABLE ARCADE SYSTEMS · v1.1</p>
+        {/* Career stats */}
+        <div className="w-full border p-4" style={{ borderColor: `${accent2}66`, background: "rgba(0,0,0,0.5)" }}>
+          <h2 className="font-bold mb-3 tracking-widest text-center" style={{ color: accent2 }}>{u.careerStats}</h2>
+          {career && (
+            <ul className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
+              <Stat label={u.statGames} value={career.gamesPlayed} accent={accent3} accent2={accent2} />
+              <Stat label={u.statKills} value={career.totalKills} accent={accent3} accent2={accent2} />
+              <Stat label={u.statWaves} value={career.totalWaves} accent={accent3} accent2={accent2} />
+              <Stat label={u.statBosses} value={career.totalBosses} accent={accent3} accent2={accent2} />
+              <Stat label={u.statAbombs} value={career.totalAbombs} accent={accent3} accent2={accent2} />
+              <Stat label={u.statPlaytime} value={formatTime(career.totalPlaytime)} accent={accent3} accent2={accent2} />
+              <Stat label={u.statHighLevel} value={career.highestLevel} accent={accent3} accent2={accent2} />
+              <Stat label={u.statHighScore} value={career.highestScore.toString().padStart(6, "0")} accent={accent3} accent2={accent2} />
+            </ul>
+          )}
+        </div>
+
+        {/* Best level times */}
+        <div className="w-full border p-4" style={{ borderColor: `${accent3}66`, background: "rgba(0,0,0,0.5)" }}>
+          <h2 className="font-bold mb-3 tracking-widest text-center" style={{ color: accent3 }}>{u.bestTimes}</h2>
+          {Object.keys(bestTimes).length === 0 ? (
+            <p className="text-center text-sm opacity-60" style={{ color: accent }}>{u.noBestYet}</p>
+          ) : (
+            <ul className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-xs tabular-nums">
+              {Object.keys(bestTimes)
+                .map((k) => parseInt(k, 10))
+                .sort((a, b) => a - b)
+                .map((lvl) => (
+                  <li key={lvl} className="border px-2 py-1 flex justify-between" style={{ borderColor: `${accent3}55` }}>
+                    <span style={{ color: accent3 }}>LVL {lvl}</span>
+                    <span style={{ color: accent2 }}>{formatTime(bestTimes[lvl])}</span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+
+        <p className="text-xs text-center opacity-40" style={{ color: accent }}>© 1986 LOVABLE ARCADE SYSTEMS · v1.2</p>
       </div>
     </div>
+  );
+}
+
+function Stat({ label, value, accent, accent2 }: { label: string; value: number | string; accent: string; accent2: string }) {
+  return (
+    <li className="border px-2 py-1.5 flex flex-col" style={{ borderColor: `${accent}33` }}>
+      <span className="text-[10px] opacity-70" style={{ color: accent }}>{label}</span>
+      <span className="font-bold" style={{ color: accent2 }}>{value}</span>
+    </li>
   );
 }

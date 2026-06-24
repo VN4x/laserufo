@@ -1,5 +1,8 @@
 // F16 Fury — retro arcade game engine
 // Internal logical resolution; canvas is upscaled via CSS for pixel look.
+import { P } from "./palette";
+import { t } from "./i18n";
+import { unlock, bumpAbomb } from "./achievements";
 
 export const VW = 480;
 export const VH = 270;
@@ -20,7 +23,7 @@ interface Player extends Entity {
   mana: number;
   maxMana: number;
   invuln: number;
-  rotation: number; // radians, for trick detection
+  rotation: number;
   spinning: boolean;
   spinAccum: number;
   spinDir: number;
@@ -74,6 +77,8 @@ interface Input {
 }
 
 const ENT_SCALE = 1.3;
+const START_LIVES = 5;
+const SHIELD_COST = 25;
 
 export class Game {
   ctx: CanvasRenderingContext2D;
@@ -104,6 +109,7 @@ export class Game {
   onStats: (s: GameStats) => void;
   comboCount = 0;
   comboTimer = 0;
+  hitsThisWave = 0;
 
   constructor(ctx: CanvasRenderingContext2D, onStats: (s: GameStats) => void) {
     this.ctx = ctx;
@@ -124,7 +130,7 @@ export class Game {
       vel: { x: 0, y: 0 },
       w: 31, h: 13,
       alive: true,
-      hp: 3, lives: 3,
+      hp: START_LIVES, lives: START_LIVES,
       mana: 0, maxMana: 100,
       invuln: 0,
       rotation: 0, spinning: false, spinAccum: 0, spinDir: 0,
@@ -144,6 +150,7 @@ export class Game {
     this.time = 0;
     this.comboCount = 0;
     this.comboTimer = 0;
+    this.hitsThisWave = 0;
     this.startNextWave();
     this.emitStats();
   }
@@ -162,7 +169,14 @@ export class Game {
   }
 
   startNextWave() {
+    // Reward "no damage" on the wave we just finished
+    if (this.wave >= 1 && this.hitsThisWave === 0) {
+      unlock("no_dmg_wave");
+    }
+    this.hitsThisWave = 0;
+
     this.wave++;
+    if (this.wave >= 5) unlock("wave_5");
     const isBoss = this.wave % 5 === 0;
     this.spawnQueue = [];
     if (isBoss) {
@@ -176,7 +190,11 @@ export class Game {
       }
     }
     this.waveTimer = 0;
-    this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 20, vy: -0.2, life: 90, text: isBoss ? `BOSS WAVE ${this.wave}` : `WAVE ${this.wave}`, color: "#ff4fd8" });
+    this.floats.push({
+      x: VW / 2 - 30, y: VH / 2 - 20, vy: -0.2, life: 90,
+      text: isBoss ? `${t().bossWave} ${this.wave}` : `${t().wave} ${this.wave}`,
+      color: P().hudAccent,
+    });
   }
 
   spawnEnemy(kind: Enemy["kind"], y?: number) {
@@ -220,7 +238,10 @@ export class Game {
     else if (key === "b") this.input.abomb = down;
     else if (key === "q") this.input.trickL = down;
     else if (key === "e") this.input.trickR = down;
-    else if (key === "p" && down) this.paused = !this.paused;
+    else if ((key === "p" || key === "escape") && down) {
+      this.paused = !this.paused;
+      this.emitStats();
+    }
   }
 
   step(dt: number) {
@@ -247,21 +268,26 @@ export class Game {
 
   registerKill(e: Enemy, longShot: boolean) {
     this.kills++;
+    if (this.kills === 1) unlock("first_kill");
     const baseScore = e.kind === "ufo" ? 100 : e.kind === "bomber" ? 150 : e.kind === "mother" ? 300 : 2000;
     this.score += baseScore;
+    if (this.score >= 10000) unlock("score_10k");
     this.comboCount++;
     this.comboTimer = 2;
+    if (this.comboCount >= 5) unlock("combo_5");
+    if (this.comboCount >= 10) unlock("combo_10");
     if (this.comboCount >= 3) {
-      this.addMana(15, e.pos.x, e.pos.y - 8, `COMBO x${this.comboCount}`);
+      this.addMana(15, e.pos.x, e.pos.y - 8, `${t().combo} x${this.comboCount}`);
     }
     if (longShot) {
-      this.addMana(8, e.pos.x, e.pos.y - 16, "PRECISION!");
+      this.addMana(8, e.pos.x, e.pos.y - 16, t().precision);
     }
     this.explode(e.pos.x, e.pos.y, e.kind === "boss" ? 40 : 14);
     this.shake = e.kind === "boss" ? 14 : 4;
     if (e.kind === "boss") {
+      unlock("boss_down");
       this.player.lives++;
-      this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: "+1 LIFE", color: "#7cffb0" });
+      this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: t().plusLife, color: "#7cffb0" });
     }
     this.audio.boom();
   }
@@ -273,7 +299,7 @@ export class Game {
     if (this.player.mana >= this.player.maxMana) {
       this.player.mana = 0;
       this.player.lives++;
-      this.floats.push({ x: this.player.pos.x - 18, y: this.player.pos.y - 18, vy: -0.4, life: 80, text: "+1 LIFE", color: "#7cffb0" });
+      this.floats.push({ x: this.player.pos.x - 18, y: this.player.pos.y - 18, vy: -0.4, life: 80, text: t().plusLife, color: "#7cffb0" });
     }
   }
 
@@ -301,7 +327,7 @@ export class Game {
       if (p.spinAccum >= Math.PI * 2) {
         p.spinning = false;
         p.rotation = 0;
-        this.addMana(10, p.pos.x, p.pos.y - 16, "BARREL ROLL!");
+        this.addMana(10, p.pos.x, p.pos.y - 16, t().barrelRoll);
       }
     }
 
@@ -328,8 +354,8 @@ export class Game {
       p.laserCool = 18;
       this.audio.laser();
     }
-    if (this.input.bomb && p.bombCool <= 0 && p.mana >= 20) {
-      p.mana -= 20;
+    // K bomb — always available, no mana cost (fix: previously locked behind 20 mana)
+    if (this.input.bomb && p.bombCool <= 0) {
       this.projectiles.push({
         pos: { x: p.pos.x + 10, y: p.pos.y + 6 }, vel: { x: 1.7, y: 1.27 },
         w: 6, h: 8, alive: true, damage: 30, fromPlayer: true, kind: "bomb", life: 200,
@@ -343,8 +369,8 @@ export class Game {
       this.input.abomb = false;
       this.shake = 22;
       this.audio.aBomb();
-      this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: "A-BOMB!", color: "#ffd84d" });
-      // flash explosions across screen
+      bumpAbomb();
+      this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: t().aBomb, color: "#ffd84d" });
       for (let i = 0; i < 14; i++) {
         this.explode(40 + Math.random() * (VW - 80), 20 + Math.random() * (VH - 60), 18);
       }
@@ -361,7 +387,6 @@ export class Game {
           }
         }
       }
-      // also wipe enemy projectiles
       for (const pr of this.projectiles) {
         if (!pr.fromPlayer) pr.alive = false;
       }
@@ -372,20 +397,20 @@ export class Game {
       if (!e.alive) continue;
       const dx = e.pos.x - p.pos.x; const dy = e.pos.y - p.pos.y;
       const d = Math.hypot(dx, dy);
-      const tagged = (e as any)._nearMissed as number | undefined;
+      const tagged = (e as unknown as { _nearMissed?: number })._nearMissed;
       if (d < 26 && d > 16 && !tagged && e.pos.x < p.pos.x + 30) {
-        (e as any)._nearMissed = this.time;
-        this.addMana(5, p.pos.x + 10, p.pos.y - 14, "NEAR MISS!");
+        (e as unknown as { _nearMissed?: number })._nearMissed = this.time;
+        this.addMana(5, p.pos.x + 10, p.pos.y - 14, t().nearMiss);
       }
     }
     for (const pr of this.projectiles) {
       if (pr.fromPlayer || !pr.alive) continue;
       const dx = pr.pos.x - p.pos.x; const dy = pr.pos.y - p.pos.y;
       const d = Math.hypot(dx, dy);
-      const tagged = (pr as any)._nearMissed;
+      const tagged = (pr as unknown as { _nearMissed?: boolean })._nearMissed;
       if (d < 18 && d > 10 && !tagged) {
-        (pr as any)._nearMissed = true;
-        this.addMana(5, p.pos.x, p.pos.y - 14, "DODGE!");
+        (pr as unknown as { _nearMissed?: boolean })._nearMissed = true;
+        this.addMana(5, p.pos.x, p.pos.y - 14, t().dodge);
       }
     }
   }
@@ -462,7 +487,7 @@ export class Game {
           }
         }
       } else {
-        if (p.invuln <= 0 && rectsHit(pr, { pos: { x: p.pos.x, y: p.pos.y }, w: p.w, h: p.h } as any)) {
+        if (p.invuln <= 0 && rectsHit(pr, { pos: { x: p.pos.x, y: p.pos.y }, w: p.w, h: p.h } as Entity)) {
           pr.alive = false;
           this.hitPlayer();
         }
@@ -472,7 +497,7 @@ export class Game {
     if (p.invuln <= 0) {
       for (const e of this.enemies) {
         if (!e.alive) continue;
-        if (rectsHit({ pos: p.pos, w: p.w, h: p.h } as any, e)) {
+        if (rectsHit({ pos: p.pos, w: p.w, h: p.h } as Entity, e)) {
           this.hitPlayer();
           e.hp -= 5;
           if (e.hp <= 0) { e.alive = false; this.registerKill(e, false); }
@@ -484,19 +509,34 @@ export class Game {
   }
 
   hitPlayer() {
-    this.player.lives--;
-    this.player.invuln = 90;
+    const p = this.player;
+    // MANA SHIELD: absorb the hit if enough mana
+    if (p.mana >= SHIELD_COST) {
+      p.mana -= SHIELD_COST;
+      p.invuln = 60;
+      this.shake = 6;
+      this.floats.push({
+        x: p.pos.x - 10, y: p.pos.y - 16, vy: -0.4, life: 60,
+        text: t().shield, color: "#7cf0ff",
+      });
+      this.audio.ding();
+      unlock("shield_save");
+      return;
+    }
+    this.hitsThisWave++;
+    p.lives--;
+    p.invuln = 90;
     this.shake = 10;
-    this.explode(this.player.pos.x + 10, this.player.pos.y + 4, 18);
+    this.explode(p.pos.x + 10, p.pos.y + 4, 18);
     this.audio.hurt();
-    if (this.player.lives <= 0) {
+    if (p.lives <= 0) {
       this.gameOver = true;
       this.audio.gameOver();
     }
   }
 
   explode(x: number, y: number, count: number) {
-    const colors = ["#ff4fd8", "#ffd84d", "#ff6a3d", "#7cf0ff", "#ffffff"];
+    const colors = P().particles;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 0.5 + Math.random() * 2.5;
@@ -530,7 +570,6 @@ export class Game {
     if (this.spawnQueue.length === 0 && this.enemies.length === 0) {
       this.startNextWave();
     }
-    // scroll bg
     for (const st of this.stars) {
       st.x -= st.z * 1.5;
       if (st.x < 0) { st.x += VW; st.y = Math.random() * VH; }
@@ -543,29 +582,30 @@ export class Game {
 
   draw() {
     const ctx = this.ctx;
+    const pal = P();
     const sx = (Math.random() - 0.5) * this.shake;
     const sy = (Math.random() - 0.5) * this.shake;
     ctx.save();
     ctx.translate(sx, sy);
     // Sky gradient
     const g = ctx.createLinearGradient(0, 0, 0, VH);
-    g.addColorStop(0, "#0a0420");
-    g.addColorStop(0.6, "#2a0a4a");
-    g.addColorStop(1, "#ff2d6a");
+    g.addColorStop(0, pal.skyTop);
+    g.addColorStop(0.6, pal.skyMid);
+    g.addColorStop(1, pal.skyBot);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VW, VH);
     // Stars
     for (const st of this.stars) {
-      ctx.fillStyle = `rgba(255,255,255,${st.z})`;
+      ctx.fillStyle = pal.star(st.z);
       ctx.fillRect(Math.floor(st.x), Math.floor(st.y), 1, 1);
     }
     // Sun
-    ctx.fillStyle = "#ffd84d";
+    ctx.fillStyle = pal.sun;
     ctx.beginPath(); ctx.arc(VW - 80, VH - 80, 40, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "rgba(10,4,32,0.8)";
+    ctx.fillStyle = pal.bg;
     for (let i = 0; i < 5; i++) ctx.fillRect(VW - 130, VH - 70 + i * 8, 100, 3);
     // Mountains
-    ctx.fillStyle = "#1a0838";
+    ctx.fillStyle = pal.mountain;
     for (const m of this.mountains) {
       ctx.beginPath();
       ctx.moveTo(m.x, VH - 40);
@@ -574,13 +614,13 @@ export class Game {
       ctx.closePath(); ctx.fill();
     }
     // Ground line
-    ctx.fillStyle = "#ff2d6a";
+    ctx.fillStyle = pal.ground;
     ctx.fillRect(0, VH - 40, VW, 1);
     for (let i = 0; i < 8; i++) {
       ctx.fillRect(0, VH - 40 + i * 5 + 2, VW, 1);
     }
-    // Grid lines receding
-    ctx.strokeStyle = "#ff2d6a";
+    // Grid lines
+    ctx.strokeStyle = pal.ground;
     ctx.lineWidth = 0.5;
     for (let i = 0; i < 10; i++) {
       const y = VH - 40 + i * 4;
@@ -591,12 +631,12 @@ export class Game {
     for (const pr of this.projectiles) {
       if (pr.fromPlayer) continue;
       if (pr.kind === "plasma") {
-        ctx.fillStyle = "#7cffb0";
+        ctx.fillStyle = pal.plasma;
         ctx.fillRect(Math.floor(pr.pos.x - 3), Math.floor(pr.pos.y - 3), 6, 6);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = pal.laserCore;
         ctx.fillRect(Math.floor(pr.pos.x - 1), Math.floor(pr.pos.y - 1), 2, 2);
       } else if (pr.kind === "bomb") {
-        ctx.fillStyle = "#888";
+        ctx.fillStyle = pal.bombGray;
         ctx.fillRect(Math.floor(pr.pos.x - 2), Math.floor(pr.pos.y - 3), 4, 6);
       }
     }
@@ -606,17 +646,17 @@ export class Game {
     for (const pr of this.projectiles) {
       if (!pr.fromPlayer) continue;
       if (pr.kind === "bullet") {
-        ctx.fillStyle = "#ffd84d";
+        ctx.fillStyle = pal.bullet;
         ctx.fillRect(Math.floor(pr.pos.x), Math.floor(pr.pos.y), 5, 2);
       } else if (pr.kind === "laser") {
-        ctx.fillStyle = "#ff4fd8";
+        ctx.fillStyle = pal.laserMain;
         ctx.fillRect(Math.floor(pr.pos.x), Math.floor(pr.pos.y - 1), 30, 3);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = pal.laserCore;
         ctx.fillRect(Math.floor(pr.pos.x), Math.floor(pr.pos.y), 30, 1);
       } else if (pr.kind === "bomb") {
-        ctx.fillStyle = "#aaaaaa";
+        ctx.fillStyle = pal.bombShell;
         ctx.fillRect(Math.floor(pr.pos.x - 2), Math.floor(pr.pos.y - 3), 5, 7);
-        ctx.fillStyle = "#ff4fd8";
+        ctx.fillStyle = pal.bombFin;
         ctx.fillRect(Math.floor(pr.pos.x), Math.floor(pr.pos.y - 4), 1, 2);
       }
     }
@@ -639,29 +679,29 @@ export class Game {
     ctx.restore();
 
     // Scanlines
-    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.fillStyle = pal.scanline;
     for (let y = 0; y < VH; y += 2) ctx.fillRect(0, y, VW, 1);
 
     if (this.gameOver) {
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillStyle = pal.overlayDark;
       ctx.fillRect(0, 0, VW, VH);
-      ctx.fillStyle = "#ff4fd8";
+      ctx.fillStyle = pal.gameOver;
       ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("GAME OVER", VW / 2, VH / 2 - 10);
-      ctx.fillStyle = "#7cf0ff";
+      ctx.fillText(t().gameOver, VW / 2, VH / 2 - 10);
+      ctx.fillStyle = pal.gameOverSub;
       ctx.font = "12px monospace";
-      ctx.fillText(`SCORE ${this.score}  WAVE ${this.wave}`, VW / 2, VH / 2 + 10);
-      ctx.fillText("press R to restart", VW / 2, VH / 2 + 26);
+      ctx.fillText(`${t().score} ${this.score}  ${t().wave} ${this.wave}`, VW / 2, VH / 2 + 10);
+      ctx.fillText(t().pressRestart, VW / 2, VH / 2 + 26);
       ctx.textAlign = "left";
     }
     if (this.paused && !this.gameOver) {
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillStyle = pal.overlayLight;
       ctx.fillRect(0, 0, VW, VH);
-      ctx.fillStyle = "#ffd84d";
+      ctx.fillStyle = pal.pause;
       ctx.font = "bold 23px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("PAUSED", VW / 2, VH / 2);
+      ctx.fillText(t().paused, VW / 2, VH / 2);
       ctx.textAlign = "left";
     }
   }
@@ -669,82 +709,82 @@ export class Game {
   drawPlayer() {
     const p = this.player;
     const ctx = this.ctx;
+    const pal = P();
     if (p.invuln > 0 && Math.floor(p.invuln / 4) % 2 === 0) return;
     ctx.save();
     ctx.translate(p.pos.x + 16, p.pos.y + 7);
     ctx.rotate(p.rotation);
     ctx.scale(ENT_SCALE, ENT_SCALE);
-    // F16: fuselage + wings
-    ctx.fillStyle = "#cfd8e8";
-    ctx.fillRect(-12, -2, 22, 4); // body
-    ctx.fillStyle = "#9aa8c0";
-    ctx.fillRect(-4, -6, 8, 12); // wings
-    ctx.fillStyle = "#5a6a8a";
-    ctx.fillRect(-10, -4, 3, 8); // tail
-    ctx.fillStyle = "#ff4fd8";
-    ctx.fillRect(8, -1, 3, 2); // nose
-    ctx.fillStyle = "#7cf0ff";
-    ctx.fillRect(2, -1, 3, 2); // cockpit
-    // exhaust
-    ctx.fillStyle = "#ffd84d";
+    ctx.fillStyle = pal.playerBody;
+    ctx.fillRect(-12, -2, 22, 4);
+    ctx.fillStyle = pal.playerWing;
+    ctx.fillRect(-4, -6, 8, 12);
+    ctx.fillStyle = pal.playerTail;
+    ctx.fillRect(-10, -4, 3, 8);
+    ctx.fillStyle = pal.playerNose;
+    ctx.fillRect(8, -1, 3, 2);
+    ctx.fillStyle = pal.playerCockpit;
+    ctx.fillRect(2, -1, 3, 2);
+    ctx.fillStyle = pal.exhaust1;
     ctx.fillRect(-15, -1, 3, 2);
-    ctx.fillStyle = "#ff6a3d";
+    ctx.fillStyle = pal.exhaust2;
     ctx.fillRect(-18, -1, 3, 2);
     ctx.restore();
   }
 
   drawEnemy(e: Enemy) {
     const ctx = this.ctx;
+    const pal = P();
     ctx.save();
     ctx.translate(Math.floor(e.pos.x), Math.floor(e.pos.y));
     ctx.scale(ENT_SCALE, ENT_SCALE);
     if (e.kind === "ufo") {
-      ctx.fillStyle = "#7cffb0";
+      ctx.fillStyle = pal.ufoTop;
       ctx.fillRect(-9, -1, 18, 3);
-      ctx.fillStyle = "#4a8a6a";
+      ctx.fillStyle = pal.ufoBot;
       ctx.fillRect(-9, 2, 18, 2);
-      ctx.fillStyle = "#7cf0ff";
+      ctx.fillStyle = pal.ufoDome;
       ctx.fillRect(-4, -4, 8, 3);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = pal.laserCore;
       ctx.fillRect(-2, -3, 2, 1);
       if (Math.floor(e.age * 6) % 2) {
-        ctx.fillStyle = "#ffd84d";
+        ctx.fillStyle = pal.ufoLight;
         ctx.fillRect(-7, 4, 2, 1);
         ctx.fillRect(5, 4, 2, 1);
       }
     } else if (e.kind === "bomber") {
-      ctx.fillStyle = "#c46aff";
+      ctx.fillStyle = pal.bomberTop;
       ctx.fillRect(-11, -2, 22, 5);
-      ctx.fillStyle = "#7a3aa0";
+      ctx.fillStyle = pal.bomberBot;
       ctx.fillRect(-11, 3, 22, 3);
-      ctx.fillStyle = "#ffd84d";
+      ctx.fillStyle = pal.bomberLight;
       ctx.fillRect(-8, 6, 2, 1);
       ctx.fillRect(6, 6, 2, 1);
     } else if (e.kind === "mother") {
-      ctx.fillStyle = "#ff6a3d";
+      ctx.fillStyle = pal.motherTop;
       ctx.fillRect(-16, -2, 32, 6);
-      ctx.fillStyle = "#a03a1a";
+      ctx.fillStyle = pal.motherBot;
       ctx.fillRect(-16, 4, 32, 4);
-      ctx.fillStyle = "#7cf0ff";
+      ctx.fillStyle = pal.motherDome;
       ctx.fillRect(-8, -6, 16, 4);
-      ctx.fillStyle = "#ffd84d";
-      const t = Math.floor(e.age * 4) % 4;
+      ctx.fillStyle = pal.motherLight;
+      const tt = Math.floor(e.age * 4) % 4;
       for (let i = 0; i < 4; i++) {
-        ctx.globalAlpha = i === t ? 1 : 0.4;
+        ctx.globalAlpha = i === tt ? 1 : 0.4;
         ctx.fillRect(-12 + i * 8, 8, 2, 1);
       }
       ctx.globalAlpha = 1;
     } else if (e.kind === "boss") {
-      ctx.fillStyle = "#ff2d6a";
+      ctx.fillStyle = pal.bossTop;
       ctx.fillRect(-30, -8, 60, 16);
-      ctx.fillStyle = "#7a0c2a";
+      ctx.fillStyle = pal.bossBot;
       ctx.fillRect(-30, 8, 60, 8);
-      ctx.fillStyle = "#7cf0ff";
+      ctx.fillStyle = pal.bossDome;
       ctx.fillRect(-16, -14, 32, 6);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = pal.laserCore;
       ctx.fillRect(-12, -12, 4, 2);
       ctx.fillRect(8, -12, 4, 2);
-      ctx.fillStyle = "#ffd84d";
+      ctx.fillStyle = pal.bossLight;
       for (let i = 0; i < 6; i++) {
         const on = Math.floor(e.age * 8 + i) % 2 === 0;
         ctx.globalAlpha = on ? 1 : 0.3;
@@ -753,7 +793,7 @@ export class Game {
       ctx.globalAlpha = 1;
       ctx.fillStyle = "#000";
       ctx.fillRect(-30, -22, 60, 3);
-      ctx.fillStyle = "#7cffb0";
+      ctx.fillStyle = pal.bossHp;
       ctx.fillRect(-30, -22, Math.floor(60 * e.hp / e.maxHp), 3);
     }
     ctx.restore();
@@ -772,7 +812,7 @@ class AudioCtx {
   ac: AudioContext | null = null;
   ensure() {
     if (!this.ac) {
-      try { this.ac = new (window.AudioContext || (window as any).webkitAudioContext)(); } catch { /* ignore */ }
+      try { this.ac = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)(); } catch { /* ignore */ }
     }
     return this.ac;
   }

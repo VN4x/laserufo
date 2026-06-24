@@ -561,7 +561,9 @@ export class Game {
     if (p.lives <= 0) {
       this.gameOver = true;
       this.audio.gameOver();
+      Music.stop();
     }
+
   }
 
   explode(x: number, y: number, count: number) {

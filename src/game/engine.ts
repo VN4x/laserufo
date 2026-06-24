@@ -4,6 +4,7 @@ import { P } from "./palette";
 import { t } from "./i18n";
 import { unlock, bumpAbomb } from "./achievements";
 import { Music } from "./music";
+import { recordRun, recordLevelTime } from "./stats";
 
 export type BossVariant = "saucer" | "insect" | "monster" | "spectre";
 const BOSS_CYCLE: BossVariant[] = ["saucer", "insect", "monster", "spectre"];
@@ -70,10 +71,13 @@ interface FloatText {
 export interface GameStats {
   score: number;
   wave: number;
+  level: number;
+  levelTime: number;
   lives: number;
   mana: number;
   maxMana: number;
   kills: number;
+  bosses: number;
   gameOver: boolean;
   paused: boolean;
 }
@@ -118,6 +122,10 @@ export class Game {
   comboCount = 0;
   comboTimer = 0;
   hitsThisWave = 0;
+  bossesKilled = 0;
+  abombsThisRun = 0;
+  levelStartedAt = 0;
+  runRecorded = false;
 
   constructor(ctx: CanvasRenderingContext2D, onStats: (s: GameStats) => void) {
     this.ctx = ctx;
@@ -161,6 +169,10 @@ export class Game {
     this.comboCount = 0;
     this.comboTimer = 0;
     this.hitsThisWave = 0;
+    this.bossesKilled = 0;
+    this.abombsThisRun = 0;
+    this.levelStartedAt = 0;
+    this.runRecorded = false;
     this.startNextWave();
     this.emitStats();
   }
@@ -169,10 +181,13 @@ export class Game {
     this.onStats({
       score: this.score,
       wave: this.wave,
+      level: this.getLevel(),
+      levelTime: Math.max(0, this.time - this.levelStartedAt),
       lives: this.player.lives,
       mana: Math.floor(this.player.mana),
       maxMana: this.player.maxMana,
       kills: this.kills,
+      bosses: this.bossesKilled,
       gameOver: this.gameOver,
       paused: this.paused,
     });
@@ -186,10 +201,18 @@ export class Game {
     this.hitsThisWave = 0;
 
     const prevWave = this.wave;
+    const prevLevel = prevWave > 0 ? Math.floor((prevWave - 1) / 5) + 1 : 0;
     this.wave++;
     if (this.wave >= 5) unlock("wave_5");
     const isBoss = this.wave % 5 === 0;
     const level = this.getLevel();
+    // Level transition: record best time, reset level timer
+    if (prevLevel > 0 && level > prevLevel) {
+      recordLevelTime(prevLevel, this.time - this.levelStartedAt);
+      this.levelStartedAt = this.time;
+    } else if (prevWave === 0) {
+      this.levelStartedAt = this.time;
+    }
     this.spawnQueue = [];
     if (isBoss) {
       const variant = BOSS_CYCLE[(Math.floor((this.wave - 5) / 5)) % BOSS_CYCLE.length];
@@ -311,6 +334,7 @@ export class Game {
     this.shake = e.kind === "boss" ? 14 : 4;
     if (e.kind === "boss") {
       unlock("boss_down");
+      this.bossesKilled++;
       this.player.lives++;
       this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: t().plusLife, color: "#7cffb0" });
       this.audio.powerup();
@@ -398,6 +422,7 @@ export class Game {
       this.input.abomb = false;
       this.shake = 22;
       this.audio.aBomb();
+      this.abombsThisRun++;
       bumpAbomb();
       this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: t().aBomb, color: "#ffd84d" });
       for (let i = 0; i < 14; i++) {
@@ -562,6 +587,18 @@ export class Game {
       this.gameOver = true;
       this.audio.gameOver();
       Music.stop();
+      if (!this.runRecorded) {
+        this.runRecorded = true;
+        recordRun({
+          kills: this.kills,
+          waves: Math.max(0, this.wave - 1),
+          level: this.getLevel(),
+          bosses: this.bossesKilled,
+          abombs: this.abombsThisRun,
+          playtime: this.time,
+          score: this.score,
+        });
+      }
     }
 
   }

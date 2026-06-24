@@ -46,7 +46,7 @@ function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<Game | null>(null);
   const [stats, setStats] = useState<GameStats>({
-    score: 0, wave: 1, lives: 5, mana: 0, maxMana: 100, kills: 0, gameOver: false, paused: false,
+    score: 0, wave: 1, level: 1, levelTime: 0, lives: 5, mana: 0, maxMana: 100, kills: 0, bosses: 0, gameOver: false, paused: false,
   });
   const savedRef = useRef(false);
 
@@ -259,8 +259,11 @@ function PlayPage() {
           <span style={{ color: accent2 }} className="w-10 text-right">{stats.mana}</span>
           {hasShield && <span className="text-xs" style={{ color: accent2 }} title="shield ready">◈</span>}
         </div>
-        <div className="flex justify-end gap-4">
-          <span><span style={{ color: accent }}>{u.level}</span> {Math.floor((stats.wave - 1) / 5) + 1}</span>
+        <div className="flex justify-end gap-4 items-center">
+          <span><span style={{ color: accent }}>{u.level}</span> {stats.level}</span>
+          <span className="tabular-nums" title="level time" style={{ color: accent2 }}>
+            ⏱ {Math.floor(stats.levelTime / 60)}:{Math.floor(stats.levelTime % 60).toString().padStart(2, "0")}
+          </span>
           <span><span style={{ color: accent }}>{u.wave}</span> {stats.wave}</span>
           <span><span style={{ color: accent }}>{u.score}</span> {stats.score.toString().padStart(6, "0")}</span>
         </div>

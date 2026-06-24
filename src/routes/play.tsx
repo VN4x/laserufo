@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Game, VW, VH, type GameStats } from "../game/engine";
-import { setTheme, getTheme, type Theme } from "../game/palette";
-import { setLang, getLang, ui, type Lang } from "../game/i18n";
+import { setTheme, type Theme } from "../game/palette";
+import { setLang, ui, type Lang } from "../game/i18n";
 import { onAchievement, getAchievementInfo, type AchKey } from "../game/achievements";
+import { Music } from "../game/music";
+
 
 export const Route = createFileRoute("/play")({
   ssr: false,

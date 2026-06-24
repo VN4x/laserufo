@@ -260,9 +260,11 @@ function PlayPage() {
           {hasShield && <span className="text-xs" style={{ color: accent2 }} title="shield ready">◈</span>}
         </div>
         <div className="flex justify-end gap-4">
+          <span><span style={{ color: accent }}>{u.level}</span> {Math.floor((stats.wave - 1) / 5) + 1}</span>
           <span><span style={{ color: accent }}>{u.wave}</span> {stats.wave}</span>
           <span><span style={{ color: accent }}>{u.score}</span> {stats.score.toString().padStart(6, "0")}</span>
         </div>
+
       </div>
 
       <div

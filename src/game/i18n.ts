@@ -131,6 +131,8 @@ export const UI_DICT: Record<Lang, UI> = {
     unlocked: "lukust lahti",
     newAchievement: "UUS SAAVUTUS",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
+    music: "Muusika", sfx: "Helid", mute: "Vaigista", unmute: "Heli sisse", level: "TASE",
+
   },
   en: {
     lives: "LIVES", mana: "MANA", wave: "WAVE", score: "SCORE",

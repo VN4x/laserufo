@@ -3,6 +3,11 @@
 import { P } from "./palette";
 import { t } from "./i18n";
 import { unlock, bumpAbomb } from "./achievements";
+import { Music } from "./music";
+
+export type BossVariant = "saucer" | "insect" | "monster" | "spectre";
+const BOSS_CYCLE: BossVariant[] = ["saucer", "insect", "monster", "spectre"];
+
 
 export const VW = 480;
 export const VH = 270;

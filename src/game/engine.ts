@@ -217,6 +217,7 @@ export class Game {
     else if (key === " " || key === "spacebar") this.input.mg = down;
     else if (key === "j") this.input.laser = down;
     else if (key === "k") this.input.bomb = down;
+    else if (key === "b") this.input.abomb = down;
     else if (key === "q") this.input.trickL = down;
     else if (key === "e") this.input.trickR = down;
     else if (key === "p" && down) this.paused = !this.paused;

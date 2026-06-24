@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Game, VW, VH, type GameStats } from "../game/engine";
 
 export const Route = createFileRoute("/play")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "F16 Fury — Mängi" },

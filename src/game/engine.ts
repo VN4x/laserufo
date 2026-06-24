@@ -695,67 +695,68 @@ export class Game {
 
   drawEnemy(e: Enemy) {
     const ctx = this.ctx;
-    const x = Math.floor(e.pos.x), y = Math.floor(e.pos.y);
+    ctx.save();
+    ctx.translate(Math.floor(e.pos.x), Math.floor(e.pos.y));
+    ctx.scale(ENT_SCALE, ENT_SCALE);
     if (e.kind === "ufo") {
       ctx.fillStyle = "#7cffb0";
-      ctx.fillRect(x - 9, y - 1, 18, 3);
+      ctx.fillRect(-9, -1, 18, 3);
       ctx.fillStyle = "#4a8a6a";
-      ctx.fillRect(x - 9, y + 2, 18, 2);
+      ctx.fillRect(-9, 2, 18, 2);
       ctx.fillStyle = "#7cf0ff";
-      ctx.fillRect(x - 4, y - 4, 8, 3);
+      ctx.fillRect(-4, -4, 8, 3);
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x - 2, y - 3, 2, 1);
-      // bottom lights
+      ctx.fillRect(-2, -3, 2, 1);
       if (Math.floor(e.age * 6) % 2) {
         ctx.fillStyle = "#ffd84d";
-        ctx.fillRect(x - 7, y + 4, 2, 1);
-        ctx.fillRect(x + 5, y + 4, 2, 1);
+        ctx.fillRect(-7, 4, 2, 1);
+        ctx.fillRect(5, 4, 2, 1);
       }
     } else if (e.kind === "bomber") {
       ctx.fillStyle = "#c46aff";
-      ctx.fillRect(x - 11, y - 2, 22, 5);
+      ctx.fillRect(-11, -2, 22, 5);
       ctx.fillStyle = "#7a3aa0";
-      ctx.fillRect(x - 11, y + 3, 22, 3);
+      ctx.fillRect(-11, 3, 22, 3);
       ctx.fillStyle = "#ffd84d";
-      ctx.fillRect(x - 8, y + 6, 2, 1);
-      ctx.fillRect(x + 6, y + 6, 2, 1);
+      ctx.fillRect(-8, 6, 2, 1);
+      ctx.fillRect(6, 6, 2, 1);
     } else if (e.kind === "mother") {
       ctx.fillStyle = "#ff6a3d";
-      ctx.fillRect(x - 16, y - 2, 32, 6);
+      ctx.fillRect(-16, -2, 32, 6);
       ctx.fillStyle = "#a03a1a";
-      ctx.fillRect(x - 16, y + 4, 32, 4);
+      ctx.fillRect(-16, 4, 32, 4);
       ctx.fillStyle = "#7cf0ff";
-      ctx.fillRect(x - 8, y - 6, 16, 4);
+      ctx.fillRect(-8, -6, 16, 4);
       ctx.fillStyle = "#ffd84d";
       const t = Math.floor(e.age * 4) % 4;
       for (let i = 0; i < 4; i++) {
         ctx.globalAlpha = i === t ? 1 : 0.4;
-        ctx.fillRect(x - 12 + i * 8, y + 8, 2, 1);
+        ctx.fillRect(-12 + i * 8, 8, 2, 1);
       }
       ctx.globalAlpha = 1;
     } else if (e.kind === "boss") {
       ctx.fillStyle = "#ff2d6a";
-      ctx.fillRect(x - 30, y - 8, 60, 16);
+      ctx.fillRect(-30, -8, 60, 16);
       ctx.fillStyle = "#7a0c2a";
-      ctx.fillRect(x - 30, y + 8, 60, 8);
+      ctx.fillRect(-30, 8, 60, 8);
       ctx.fillStyle = "#7cf0ff";
-      ctx.fillRect(x - 16, y - 14, 32, 6);
+      ctx.fillRect(-16, -14, 32, 6);
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x - 12, y - 12, 4, 2);
-      ctx.fillRect(x + 8, y - 12, 4, 2);
+      ctx.fillRect(-12, -12, 4, 2);
+      ctx.fillRect(8, -12, 4, 2);
       ctx.fillStyle = "#ffd84d";
       for (let i = 0; i < 6; i++) {
         const on = Math.floor(e.age * 8 + i) % 2 === 0;
         ctx.globalAlpha = on ? 1 : 0.3;
-        ctx.fillRect(x - 24 + i * 10, y + 16, 3, 2);
+        ctx.fillRect(-24 + i * 10, 16, 3, 2);
       }
       ctx.globalAlpha = 1;
-      // HP bar
       ctx.fillStyle = "#000";
-      ctx.fillRect(x - 30, y - 22, 60, 3);
+      ctx.fillRect(-30, -22, 60, 3);
       ctx.fillStyle = "#7cffb0";
-      ctx.fillRect(x - 30, y - 22, Math.floor(60 * e.hp / e.maxHp), 3);
+      ctx.fillRect(-30, -22, Math.floor(60 * e.hp / e.maxHp), 3);
     }
+    ctx.restore();
   }
 }
 

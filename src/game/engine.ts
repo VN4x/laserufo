@@ -631,7 +631,7 @@ export class Game {
     }
     ctx.globalAlpha = 1;
     // Floating text
-    ctx.font = "bold 8px monospace";
+    ctx.font = "bold 9px monospace";
     for (const f of this.floats) {
       ctx.fillStyle = f.color;
       ctx.fillText(f.text, f.x, f.y);

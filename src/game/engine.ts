@@ -659,7 +659,7 @@ export class Game {
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(0, 0, VW, VH);
       ctx.fillStyle = "#ffd84d";
-      ctx.font = "bold 20px monospace";
+      ctx.font = "bold 23px monospace";
       ctx.textAlign = "center";
       ctx.fillText("PAUSED", VW / 2, VH / 2);
       ctx.textAlign = "left";

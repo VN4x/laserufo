@@ -69,9 +69,11 @@ export interface GameStats {
 
 interface Input {
   up: boolean; down: boolean; left: boolean; right: boolean;
-  mg: boolean; laser: boolean; bomb: boolean;
+  mg: boolean; laser: boolean; bomb: boolean; abomb: boolean;
   trickL: boolean; trickR: boolean;
 }
+
+const ENT_SCALE = 1.3;
 
 export class Game {
   ctx: CanvasRenderingContext2D;

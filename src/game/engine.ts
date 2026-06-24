@@ -105,7 +105,7 @@ export class Game {
 
   wave = 0;
   waveTimer = 0;
-  spawnQueue: Array<{ t: number; kind: Enemy["kind"]; y?: number }> = [];
+  spawnQueue: Array<{ t: number; kind: Enemy["kind"]; y?: number; variant?: BossVariant }> = [];
   score = 0;
   kills = 0;
   killTimes: number[] = [];

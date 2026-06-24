@@ -311,6 +311,8 @@ export class Game {
       unlock("boss_down");
       this.player.lives++;
       this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: t().plusLife, color: "#7cffb0" });
+      this.audio.powerup();
+      Music.play("battle");
     }
     this.audio.boom();
   }
@@ -323,8 +325,10 @@ export class Game {
       this.player.mana = 0;
       this.player.lives++;
       this.floats.push({ x: this.player.pos.x - 18, y: this.player.pos.y - 18, vy: -0.4, life: 80, text: t().plusLife, color: "#7cffb0" });
+      this.audio.powerup();
     }
   }
+
 
   updatePlayer(dt: number) {
     const p = this.player;

@@ -45,7 +45,10 @@ interface Enemy extends Entity {
   age: number;
   baseY: number;
   amp: number;
+  variant?: BossVariant;
+  level?: number;
 }
+
 
 interface Projectile extends Entity {
   damage: number;

@@ -808,8 +808,23 @@ export class Game {
     } else if (e.kind === "boss") {
       this.drawBoss(e);
     }
+    // Level-based tint overlay (cosmetic) for non-boss enemies
+    if (e.kind !== "boss") {
+      const tints = pal.levelTints;
+      const lvl = (e.level ?? 1) - 1;
+      if (tints && tints.length && lvl > 0) {
+        const tint = tints[lvl % tints.length];
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = tint;
+        ctx.fillRect(-22, -8, 44, 22);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+    }
     ctx.restore();
   }
+
 
   drawBoss(e: Enemy) {
     const ctx = this.ctx;

@@ -671,8 +671,9 @@ export class Game {
     const ctx = this.ctx;
     if (p.invuln > 0 && Math.floor(p.invuln / 4) % 2 === 0) return;
     ctx.save();
-    ctx.translate(p.pos.x + 12, p.pos.y + 5);
+    ctx.translate(p.pos.x + 16, p.pos.y + 7);
     ctx.rotate(p.rotation);
+    ctx.scale(ENT_SCALE, ENT_SCALE);
     // F16: fuselage + wings
     ctx.fillStyle = "#cfd8e8";
     ctx.fillRect(-12, -2, 22, 4); // body

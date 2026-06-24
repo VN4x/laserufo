@@ -87,7 +87,7 @@ export class Game {
 
   input: Input = {
     up: false, down: false, left: false, right: false,
-    mg: false, laser: false, bomb: false, trickL: false, trickR: false,
+    mg: false, laser: false, bomb: false, abomb: false, trickL: false, trickR: false,
   };
 
   wave = 0;

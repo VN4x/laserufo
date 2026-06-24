@@ -21,7 +21,9 @@ export interface Palette {
   gameOver: string; gameOverSub: string; pause: string;
   hudAccent: string;
   scanline: string;
+  levelTints: string[];
 }
+
 
 export const PALETTES: Record<Theme, Palette> = {
   arcade: {

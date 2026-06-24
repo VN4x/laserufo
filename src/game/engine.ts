@@ -407,7 +407,7 @@ export class Game {
       if (e.shootCool <= 0 && e.pos.x < VW) {
         if (e.kind === "bomber") {
           this.projectiles.push({
-            pos: { x: e.pos.x, y: e.pos.y + 8 }, vel: { x: -0.5, y: 1.5 },
+            pos: { x: e.pos.x, y: e.pos.y + 8 }, vel: { x: -0.42, y: 1.27 },
             w: 5, h: 7, alive: true, damage: 1, fromPlayer: false, kind: "bomb", life: 200,
           });
           e.shootCool = 90;

@@ -122,7 +122,7 @@ export class Game {
     this.player = {
       pos: { x: 80, y: VH / 2 },
       vel: { x: 0, y: 0 },
-      w: 24, h: 10,
+      w: 31, h: 13,
       alive: true,
       hp: 3, lives: 3,
       mana: 0, maxMana: 100,

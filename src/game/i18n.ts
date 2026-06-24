@@ -161,6 +161,8 @@ export const UI_DICT: Record<Lang, UI> = {
     unlocked: "unlocked",
     newAchievement: "NEW ACHIEVEMENT",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
+    music: "Music", sfx: "SFX", mute: "Mute", unmute: "Unmute", level: "LEVEL",
+
   },
 };
 

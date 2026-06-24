@@ -201,10 +201,18 @@ export class Game {
     this.hitsThisWave = 0;
 
     const prevWave = this.wave;
+    const prevLevel = prevWave > 0 ? Math.floor((prevWave - 1) / 5) + 1 : 0;
     this.wave++;
     if (this.wave >= 5) unlock("wave_5");
     const isBoss = this.wave % 5 === 0;
     const level = this.getLevel();
+    // Level transition: record best time, reset level timer
+    if (prevLevel > 0 && level > prevLevel) {
+      recordLevelTime(prevLevel, this.time - this.levelStartedAt);
+      this.levelStartedAt = this.time;
+    } else if (prevWave === 0) {
+      this.levelStartedAt = this.time;
+    }
     this.spawnQueue = [];
     if (isBoss) {
       const variant = BOSS_CYCLE[(Math.floor((this.wave - 5) / 5)) % BOSS_CYCLE.length];

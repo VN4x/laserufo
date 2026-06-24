@@ -95,7 +95,13 @@ export interface UI {
   unlocked: string;
   newAchievement: string;
   insertCoin: string;
+  music: string;
+  sfx: string;
+  mute: string;
+  unmute: string;
+  level: string;
 }
+
 
 export const UI_DICT: Record<Lang, UI> = {
   et: {

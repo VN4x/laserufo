@@ -169,6 +169,10 @@ export class Game {
     this.comboCount = 0;
     this.comboTimer = 0;
     this.hitsThisWave = 0;
+    this.bossesKilled = 0;
+    this.abombsThisRun = 0;
+    this.levelStartedAt = 0;
+    this.runRecorded = false;
     this.startNextWave();
     this.emitStats();
   }
@@ -177,10 +181,13 @@ export class Game {
     this.onStats({
       score: this.score,
       wave: this.wave,
+      level: this.getLevel(),
+      levelTime: Math.max(0, this.time - this.levelStartedAt),
       lives: this.player.lives,
       mana: Math.floor(this.player.mana),
       maxMana: this.player.maxMana,
       kills: this.kills,
+      bosses: this.bossesKilled,
       gameOver: this.gameOver,
       paused: this.paused,
     });

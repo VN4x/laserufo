@@ -422,6 +422,7 @@ export class Game {
       this.input.abomb = false;
       this.shake = 22;
       this.audio.aBomb();
+      this.abombsThisRun++;
       bumpAbomb();
       this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: t().aBomb, color: "#ffd84d" });
       for (let i = 0; i < 14; i++) {
@@ -586,6 +587,18 @@ export class Game {
       this.gameOver = true;
       this.audio.gameOver();
       Music.stop();
+      if (!this.runRecorded) {
+        this.runRecorded = true;
+        recordRun({
+          kills: this.kills,
+          waves: Math.max(0, this.wave - 1),
+          level: this.getLevel(),
+          bosses: this.bossesKilled,
+          abombs: this.abombsThisRun,
+          playtime: this.time,
+          score: this.score,
+        });
+      }
     }
 
   }

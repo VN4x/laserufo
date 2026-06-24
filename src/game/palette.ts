@@ -46,7 +46,9 @@ export const PALETTES: Record<Theme, Palette> = {
     gameOver: "#ff4fd8", gameOverSub: "#7cf0ff", pause: "#ffd84d",
     hudAccent: "#ff4fd8",
     scanline: "rgba(0,0,0,0.15)",
+    levelTints: ["#ff4fd8", "#7cffb0", "#ffd84d", "#7cf0ff", "#ff6a3d"],
   },
+
   terminal: {
     skyTop: "#000000", skyMid: "#050505", skyBot: "#0a0a0a",
     mountain: "#1a1a1a", ground: "#00ff41", sun: "#cccccc",

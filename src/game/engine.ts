@@ -830,21 +830,31 @@ function rectsHit(a: { pos: Vec; w: number; h: number }, b: { pos: Vec; w: numbe
     a.pos.y + a.h / 2 > b.pos.y - b.h / 2;
 }
 
-// Web Audio chiptune
+// Web Audio chiptune — routed through Music's sfx gain for volume control
 class AudioCtx {
-  ac: AudioContext | null = null;
-  ensure() {
-    if (!this.ac) {
-      try { this.ac = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)(); } catch { /* ignore */ }
-    }
-    return this.ac;
+  ensure(): AudioContext | null { return Music.ensure(); }
+  private dest(): AudioNode | null {
+    const ac = this.ensure(); if (!ac) return null;
+    return Music.getSfxNode() ?? ac.destination;
   }
   beep(freq: number, dur: number, type: OscillatorType = "square", vol = 0.05) {
-    const ac = this.ensure(); if (!ac) return;
+    const ac = this.ensure(); const d = this.dest(); if (!ac || !d) return;
     const o = ac.createOscillator(); const g = ac.createGain();
     o.type = type; o.frequency.value = freq;
     g.gain.value = vol;
-    o.connect(g); g.connect(ac.destination);
+    o.connect(g); g.connect(d);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+    o.stop(ac.currentTime + dur);
+  }
+  sweep(f0: number, f1: number, dur: number, type: OscillatorType = "sawtooth", vol = 0.06) {
+    const ac = this.ensure(); const d = this.dest(); if (!ac || !d) return;
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), ac.currentTime + dur);
+    g.gain.value = vol;
+    o.connect(g); g.connect(d);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
     o.stop(ac.currentTime + dur);
@@ -859,4 +869,8 @@ class AudioCtx {
   whoosh(){ this.beep(440, 0.18, "sine", 0.04); }
   gameOver(){ [440,330,220,150].forEach((f,i)=>setTimeout(()=>this.beep(f,0.25,"square",0.06), i*180)); }
   aBomb(){ this.beep(90,0.5,"sawtooth",0.09); this.beep(60,0.6,"square",0.07); setTimeout(()=>this.beep(140,0.3,"square",0.06),120); }
+  alarm() { [0,180,360].forEach(d => setTimeout(() => { this.beep(880, 0.15, "square", 0.06); this.beep(660, 0.15, "square", 0.05); }, d)); }
+  waveClear() { [523, 659, 784, 1046].forEach((f,i) => setTimeout(()=>this.beep(f, 0.12, "triangle", 0.06), i*70)); }
+  powerup() { this.sweep(440, 1760, 0.25, "square", 0.05); }
 }
+

@@ -183,12 +183,17 @@ export class Game {
     }
     this.hitsThisWave = 0;
 
+    const prevWave = this.wave;
     this.wave++;
     if (this.wave >= 5) unlock("wave_5");
     const isBoss = this.wave % 5 === 0;
+    const level = this.getLevel();
     this.spawnQueue = [];
     if (isBoss) {
-      this.spawnQueue.push({ t: 1, kind: "boss" });
+      const variant = BOSS_CYCLE[(Math.floor((this.wave - 5) / 5)) % BOSS_CYCLE.length];
+      this.spawnQueue.push({ t: 1, kind: "boss", variant });
+      Music.play("boss");
+      this.audio.alarm();
     } else {
       const count = 4 + Math.floor(this.wave * 1.5);
       for (let i = 0; i < count; i++) {
@@ -196,16 +201,23 @@ export class Game {
         const kind: Enemy["kind"] = r < 0.65 ? "ufo" : r < 0.85 ? "bomber" : "mother";
         this.spawnQueue.push({ t: i * 0.8 + 0.5, kind, y: 40 + Math.random() * (VH - 80) });
       }
+      Music.play("battle");
+      if (prevWave > 0) this.audio.waveClear();
     }
     this.waveTimer = 0;
     this.floats.push({
       x: VW / 2 - 30, y: VH / 2 - 20, vy: -0.2, life: 90,
-      text: isBoss ? `${t().bossWave} ${this.wave}` : `${t().wave} ${this.wave}`,
+      text: isBoss
+        ? `${t().bossWave} ${this.wave} — LVL ${level}`
+        : `${t().wave} ${this.wave} — LVL ${level}`,
       color: P().hudAccent,
     });
   }
 
-  spawnEnemy(kind: Enemy["kind"], y?: number) {
+  getLevel() { return Math.floor((this.wave - 1) / 5) + 1; }
+
+  spawnEnemy(kind: Enemy["kind"], y?: number, variant?: BossVariant) {
+
     const yy = y ?? 40 + Math.random() * (VH - 80);
     if (kind === "ufo") {
       this.enemies.push({

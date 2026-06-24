@@ -588,7 +588,7 @@ export class Game {
     this.waveTimer += dt;
     while (this.spawnQueue.length && this.spawnQueue[0].t <= this.waveTimer) {
       const s = this.spawnQueue.shift()!;
-      this.spawnEnemy(s.kind, s.y);
+      this.spawnEnemy(s.kind, s.y, s.variant);
     }
     if (this.spawnQueue.length === 0 && this.enemies.length === 0) {
       this.startNextWave();

@@ -795,4 +795,5 @@ class AudioCtx {
   ding()  { this.beep(1760, 0.08, "triangle", 0.04); }
   whoosh(){ this.beep(440, 0.18, "sine", 0.04); }
   gameOver(){ [440,330,220,150].forEach((f,i)=>setTimeout(()=>this.beep(f,0.25,"square",0.06), i*180)); }
+  aBomb(){ this.beep(90,0.5,"sawtooth",0.09); this.beep(60,0.6,"square",0.07); setTimeout(()=>this.beep(140,0.3,"square",0.06),120); }
 }

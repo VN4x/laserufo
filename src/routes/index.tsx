@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { setLang, getLang, ui, type Lang } from "../game/i18n";
 import { setTheme, getTheme, type Theme } from "../game/palette";
 import { ACHIEVEMENTS, loadUnlocked, getAchievementInfo, type AchKey } from "../game/achievements";
+import { loadCareer, loadBestTimes, formatTime, type CareerStats } from "../game/stats";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,6 +24,8 @@ function Index() {
   const [lang, setLangState] = useState<Lang>("et");
   const [theme, setThemeState] = useState<Theme>("arcade");
   const [unlocked, setUnlocked] = useState<Set<AchKey>>(new Set());
+  const [career, setCareer] = useState<CareerStats | null>(null);
+  const [bestTimes, setBestTimes] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -39,6 +42,8 @@ function Index() {
     setLang(savedLang); setTheme(savedTheme);
     setLangState(savedLang); setThemeState(savedTheme);
     setUnlocked(loadUnlocked());
+    setCareer(loadCareer());
+    setBestTimes(loadBestTimes());
   }, []);
 
   const u = ui();

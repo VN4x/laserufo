@@ -144,6 +144,19 @@ function PlayPage() {
     setTheme(t); setThemeState(t);
     if (typeof window !== "undefined") localStorage.setItem(THEME_KEY, t);
   };
+  const changeMusicVol = (v: number) => {
+    setMusicVol(v); Music.setMusicVolume(v);
+    if (typeof window !== "undefined") localStorage.setItem(MUSIC_VOL_KEY, String(v));
+  };
+  const changeSfxVol = (v: number) => {
+    setSfxVol(v); Music.setSfxVolume(v);
+    if (typeof window !== "undefined") localStorage.setItem(SFX_VOL_KEY, String(v));
+  };
+  const toggleMute = () => {
+    const m = !muted; setMuted(m); Music.setMuted(m);
+    if (typeof window !== "undefined") localStorage.setItem(MUTE_KEY, m ? "1" : "0");
+  };
+
 
   const submitName = (val: string) => {
     const clean = val.trim().slice(0, 16) || ui().namePlaceholder;

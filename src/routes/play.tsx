@@ -205,6 +205,38 @@ function PlayPage() {
         </div>
       </div>
 
+      {/* Audio controls */}
+      <div className="w-full max-w-[960px] flex flex-wrap items-center justify-end gap-4 text-xs">
+        <label className="flex items-center gap-2">
+          <span style={{ color: accent }}>{u.music}</span>
+          <input
+            type="range" min={0} max={1} step={0.05}
+            value={musicVol}
+            onChange={(e) => changeMusicVol(parseFloat(e.target.value))}
+            className="w-24 accent-current"
+            style={{ accentColor: accent2 }}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span style={{ color: accent }}>{u.sfx}</span>
+          <input
+            type="range" min={0} max={1} step={0.05}
+            value={sfxVol}
+            onChange={(e) => changeSfxVol(parseFloat(e.target.value))}
+            className="w-24"
+            style={{ accentColor: accent2 }}
+          />
+        </label>
+        <button
+          onClick={toggleMute}
+          className="px-2 py-0.5 border hover:opacity-80"
+          style={{ borderColor: accent, color: accent }}
+        >
+          {muted ? `♪ ${u.unmute}` : `✕ ${u.mute}`}
+        </button>
+      </div>
+
+
       {/* HUD */}
       <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-sm sm:text-base">
         <div className="flex items-center gap-2">

@@ -10,11 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
+import { Route as CoopRouteImport } from './routes/coop'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CoopCodeRouteImport } from './routes/coop.$code'
 
 const PlayRoute = PlayRouteImport.update({
   id: '/play',
   path: '/play',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoopRoute = CoopRouteImport.update({
+  id: '/coop',
+  path: '/coop',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -22,30 +29,42 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoopCodeRoute = CoopCodeRouteImport.update({
+  id: '/$code',
+  path: '/$code',
+  getParentRoute: () => CoopRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/coop': typeof CoopRouteWithChildren
   '/play': typeof PlayRoute
+  '/coop/$code': typeof CoopCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/coop': typeof CoopRouteWithChildren
   '/play': typeof PlayRoute
+  '/coop/$code': typeof CoopCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/coop': typeof CoopRouteWithChildren
   '/play': typeof PlayRoute
+  '/coop/$code': typeof CoopCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/play'
+  fullPaths: '/' | '/coop' | '/play' | '/coop/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/play'
-  id: '__root__' | '/' | '/play'
+  to: '/' | '/coop' | '/play' | '/coop/$code'
+  id: '__root__' | '/' | '/coop' | '/play' | '/coop/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CoopRoute: typeof CoopRouteWithChildren
   PlayRoute: typeof PlayRoute
 }
 
@@ -58,6 +77,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlayRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coop': {
+      id: '/coop'
+      path: '/coop'
+      fullPath: '/coop'
+      preLoaderRoute: typeof CoopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,13 +91,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coop/$code': {
+      id: '/coop/$code'
+      path: '/$code'
+      fullPath: '/coop/$code'
+      preLoaderRoute: typeof CoopCodeRouteImport
+      parentRoute: typeof CoopRoute
+    }
   }
 }
 
+interface CoopRouteChildren {
+  CoopCodeRoute: typeof CoopCodeRoute
+}
+
+const CoopRouteChildren: CoopRouteChildren = {
+  CoopCodeRoute: CoopCodeRoute,
+}
+
+const CoopRouteWithChildren = CoopRoute._addFileChildren(CoopRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CoopRoute: CoopRouteWithChildren,
   PlayRoute: PlayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

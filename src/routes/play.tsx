@@ -6,7 +6,6 @@ import { setLang, ui, type Lang } from "../game/i18n";
 import { onAchievement, getAchievementInfo, type AchKey } from "../game/achievements";
 import { Music } from "../game/music";
 
-
 export const Route = createFileRoute("/play")({
   ssr: false,
   head: () => ({
@@ -28,12 +27,15 @@ const MUSIC_VOL_KEY = "f16fury_music_vol";
 const SFX_VOL_KEY = "f16fury_sfx_vol";
 const MUTE_KEY = "f16fury_muted";
 
-
 type Score = { name: string; score: number; wave: number; date: string };
 
 function loadScores(): Score[] {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(HS_KEY) || "[]"); } catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(HS_KEY) || "[]");
+  } catch {
+    return [];
+  }
 }
 function saveScore(s: Score) {
   const all = [...loadScores(), s].sort((a, b) => b.score - a.score).slice(0, 10);
@@ -69,14 +71,19 @@ function PlayPage() {
     const mv = parseFloat(localStorage.getItem(MUSIC_VOL_KEY) || "0.4");
     const sv = parseFloat(localStorage.getItem(SFX_VOL_KEY) || "0.7");
     const mu = localStorage.getItem(MUTE_KEY) === "1";
-    setLang(savedLang); setTheme(savedTheme);
-    setLangState(savedLang); setThemeState(savedTheme);
-    setMusicVol(mv); setSfxVol(sv); setMuted(mu);
-    Music.setMusicVolume(mv); Music.setSfxVolume(sv); Music.setMuted(mu);
+    setLang(savedLang);
+    setTheme(savedTheme);
+    setLangState(savedLang);
+    setThemeState(savedTheme);
+    setMusicVol(mv);
+    setSfxVol(sv);
+    setMuted(mu);
+    Music.setMusicVolume(mv);
+    Music.setSfxVolume(sv);
+    Music.setMuted(mu);
     if (savedName) setName(savedName);
     else setShowNameModal(true);
   }, []);
-
 
   // Achievement toast handler
   useEffect(() => {
@@ -90,24 +97,32 @@ function PlayPage() {
 
   useEffect(() => {
     const c = canvasRef.current!;
-    c.width = VW; c.height = VH;
+    c.width = VW;
+    c.height = VH;
     const ctx = c.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
     const game = new Game(ctx, setStats);
     gameRef.current = game;
 
     const kd = (e: KeyboardEvent) => {
-      if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
-      if (e.key.toLowerCase() === "r" && game.gameOver) { savedRef.current = false; game.reset(); return; }
+      if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key))
+        e.preventDefault();
+      if (e.key.toLowerCase() === "r" && game.gameOver) {
+        savedRef.current = false;
+        game.reset();
+        return;
+      }
       game.setKey(e.key, true);
     };
     const ku = (e: KeyboardEvent) => game.setKey(e.key, false);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
 
-    let last = performance.now(); let raf = 0;
+    let last = performance.now();
+    let raf = 0;
     const loop = (t: number) => {
-      const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
       game.step(dt);
       raf = requestAnimationFrame(loop);
     };
@@ -118,7 +133,6 @@ function PlayPage() {
       window.removeEventListener("keyup", ku);
       Music.stop();
     };
-
   }, []);
 
   useEffect(() => {
@@ -126,7 +140,8 @@ function PlayPage() {
       savedRef.current = true;
       saveScore({
         name: name || ui().namePlaceholder,
-        score: stats.score, wave: stats.wave,
+        score: stats.score,
+        wave: stats.wave,
         date: new Date().toISOString(),
       });
     }
@@ -137,26 +152,31 @@ function PlayPage() {
   const hasShield = stats.mana >= 25;
 
   const changeLang = (l: Lang) => {
-    setLang(l); setLangState(l);
+    setLang(l);
+    setLangState(l);
     if (typeof window !== "undefined") localStorage.setItem(LANG_KEY, l);
   };
   const changeTheme = (t: Theme) => {
-    setTheme(t); setThemeState(t);
+    setTheme(t);
+    setThemeState(t);
     if (typeof window !== "undefined") localStorage.setItem(THEME_KEY, t);
   };
   const changeMusicVol = (v: number) => {
-    setMusicVol(v); Music.setMusicVolume(v);
+    setMusicVol(v);
+    Music.setMusicVolume(v);
     if (typeof window !== "undefined") localStorage.setItem(MUSIC_VOL_KEY, String(v));
   };
   const changeSfxVol = (v: number) => {
-    setSfxVol(v); Music.setSfxVolume(v);
+    setSfxVol(v);
+    Music.setSfxVolume(v);
     if (typeof window !== "undefined") localStorage.setItem(SFX_VOL_KEY, String(v));
   };
   const toggleMute = () => {
-    const m = !muted; setMuted(m); Music.setMuted(m);
+    const m = !muted;
+    setMuted(m);
+    Music.setMuted(m);
     if (typeof window !== "undefined") localStorage.setItem(MUTE_KEY, m ? "1" : "0");
   };
-
 
   const submitName = (val: string) => {
     const clean = val.trim().slice(0, 16) || ui().namePlaceholder;
@@ -168,9 +188,7 @@ function PlayPage() {
   const isTerminal = theme === "terminal";
   const accent = isTerminal ? "#00ff41" : "#ff4fd8";
   const accent2 = isTerminal ? "#ffffff" : "#7cf0ff";
-  const bg = isTerminal
-    ? "linear-gradient(180deg, #000 0%, #0a0a0a 100%)"
-    : "#000";
+  const bg = isTerminal ? "linear-gradient(180deg, #000 0%, #0a0a0a 100%)" : "#000";
 
   return (
     <div
@@ -192,15 +210,39 @@ function PlayPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
             <span style={{ color: accent }}>{u.language}:</span>
-            <button onClick={() => changeLang("et")} className={`px-1.5 ${lang === "et" ? "underline font-bold" : "opacity-60"}`} style={{ color: accent2 }}>ET</button>
+            <button
+              onClick={() => changeLang("et")}
+              className={`px-1.5 ${lang === "et" ? "underline font-bold" : "opacity-60"}`}
+              style={{ color: accent2 }}
+            >
+              ET
+            </button>
             <span className="opacity-40">|</span>
-            <button onClick={() => changeLang("en")} className={`px-1.5 ${lang === "en" ? "underline font-bold" : "opacity-60"}`} style={{ color: accent2 }}>EN</button>
+            <button
+              onClick={() => changeLang("en")}
+              className={`px-1.5 ${lang === "en" ? "underline font-bold" : "opacity-60"}`}
+              style={{ color: accent2 }}
+            >
+              EN
+            </button>
           </div>
           <div className="flex items-center gap-1">
             <span style={{ color: accent }}>{u.theme}:</span>
-            <button onClick={() => changeTheme("arcade")} className={`px-1.5 ${theme === "arcade" ? "underline font-bold" : "opacity-60"}`} style={{ color: accent2 }}>{u.arcade}</button>
+            <button
+              onClick={() => changeTheme("arcade")}
+              className={`px-1.5 ${theme === "arcade" ? "underline font-bold" : "opacity-60"}`}
+              style={{ color: accent2 }}
+            >
+              {u.arcade}
+            </button>
             <span className="opacity-40">|</span>
-            <button onClick={() => changeTheme("terminal")} className={`px-1.5 ${theme === "terminal" ? "underline font-bold" : "opacity-60"}`} style={{ color: accent2 }}>{u.terminal}</button>
+            <button
+              onClick={() => changeTheme("terminal")}
+              className={`px-1.5 ${theme === "terminal" ? "underline font-bold" : "opacity-60"}`}
+              style={{ color: accent2 }}
+            >
+              {u.terminal}
+            </button>
           </div>
         </div>
       </div>
@@ -210,7 +252,10 @@ function PlayPage() {
         <label className="flex items-center gap-2">
           <span style={{ color: accent }}>{u.music}</span>
           <input
-            type="range" min={0} max={1} step={0.05}
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
             value={musicVol}
             onChange={(e) => changeMusicVol(parseFloat(e.target.value))}
             className="w-24 accent-current"
@@ -220,7 +265,10 @@ function PlayPage() {
         <label className="flex items-center gap-2">
           <span style={{ color: accent }}>{u.sfx}</span>
           <input
-            type="range" min={0} max={1} step={0.05}
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
             value={sfxVol}
             onChange={(e) => changeSfxVol(parseFloat(e.target.value))}
             className="w-24"
@@ -236,7 +284,6 @@ function PlayPage() {
         </button>
       </div>
 
-
       {/* HUD */}
       <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-sm sm:text-base">
         <div className="flex items-center gap-2">
@@ -245,7 +292,10 @@ function PlayPage() {
         </div>
         <div className="flex items-center gap-2">
           <span style={{ color: accent2 }}>{u.mana}</span>
-          <div className="flex-1 h-4 border relative overflow-hidden" style={{ borderColor: `${accent2}99`, background: `${accent2}22` }}>
+          <div
+            className="flex-1 h-4 border relative overflow-hidden"
+            style={{ borderColor: `${accent2}99`, background: `${accent2}22` }}
+          >
             <div
               className="absolute inset-y-0 left-0 transition-[width] duration-100"
               style={{
@@ -256,8 +306,14 @@ function PlayPage() {
               }}
             />
           </div>
-          <span style={{ color: accent2 }} className="w-10 text-right">{stats.mana}</span>
-          {hasShield && <span className="text-xs" style={{ color: accent2 }} title="shield ready">◈</span>}
+          <span style={{ color: accent2 }} className="w-10 text-right">
+            {stats.mana}
+          </span>
+          {hasShield && (
+            <span className="text-xs" style={{ color: accent2 }} title="shield ready">
+              ◈
+            </span>
+          )}
         </div>
         <div className="flex justify-end gap-4 items-center">
           <span><span style={{ color: accent }}>{u.level}</span> {stats.level}</span>
@@ -267,7 +323,6 @@ function PlayPage() {
           <span><span style={{ color: accent }}>{u.wave}</span> {stats.wave}</span>
           <span><span style={{ color: accent }}>{u.score}</span> {stats.score.toString().padStart(6, "0")}</span>
         </div>
-
       </div>
 
       <div
@@ -292,21 +347,32 @@ function PlayPage() {
 
         {/* Pause menu overlay */}
         {stats.paused && !stats.gameOver && (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.7)" }}
+          >
             <div
               className="border-2 px-8 py-6 flex flex-col items-center gap-3"
               style={{ borderColor: accent, background: "rgba(0,0,0,0.85)" }}
             >
-              <div className="text-2xl font-bold tracking-widest" style={{ color: accent }}>{u.pausedTitle}</div>
+              <div className="text-2xl font-bold tracking-widest" style={{ color: accent }}>
+                {u.pausedTitle}
+              </div>
               <button
-                onClick={() => { gameRef.current?.setKey("p", true); }}
+                onClick={() => {
+                  gameRef.current?.setKey("p", true);
+                }}
                 className="px-6 py-2 border hover:opacity-80"
                 style={{ borderColor: accent2, color: accent2 }}
               >
                 {u.resume}
               </button>
               <button
-                onClick={() => { savedRef.current = false; gameRef.current?.reset(); gameRef.current!.paused = false; }}
+                onClick={() => {
+                  savedRef.current = false;
+                  gameRef.current?.reset();
+                  gameRef.current!.paused = false;
+                }}
                 className="px-6 py-2 border hover:opacity-80"
                 style={{ borderColor: accent2, color: accent2 }}
               >
@@ -319,7 +385,9 @@ function PlayPage() {
               >
                 {u.quit}
               </Link>
-              <div className="text-xs opacity-60 mt-2" style={{ color: accent2 }}>Esc / P</div>
+              <div className="text-xs opacity-60 mt-2" style={{ color: accent2 }}>
+                Esc / P
+              </div>
             </div>
           </div>
         )}
@@ -339,8 +407,12 @@ function PlayPage() {
                   minWidth: 180,
                 }}
               >
-                <div className="text-[10px] opacity-70" style={{ color: accent }}>★ {u.newAchievement}</div>
-                <div className="font-bold">{info.icon} {info.name}</div>
+                <div className="text-[10px] opacity-70" style={{ color: accent }}>
+                  ★ {u.newAchievement}
+                </div>
+                <div className="font-bold">
+                  {info.icon} {info.name}
+                </div>
                 <div className="opacity-80 text-[10px]">{info.desc}</div>
               </div>
             );
@@ -353,16 +425,32 @@ function PlayPage() {
         style={{ color: `${accent}cc` }}
       >
         <span>WASD / Arrows — {u.fly}</span>
-        <span><span className="text-yellow-300">Space</span> {u.machineGun}</span>
-        <span><span className="text-yellow-300">J</span> {u.laser}</span>
-        <span><span className="text-yellow-300">K</span> {u.bomb}</span>
-        <span><span className="text-yellow-300">B</span> {u.abombHint}</span>
-        <span><span className="text-yellow-300">Q/E</span> {u.trick}</span>
-        <span><span className="text-yellow-300">Esc/P</span> {u.pause}</span>
-        <span><span className="text-yellow-300">R</span> {u.restart}</span>
+        <span>
+          <span className="text-yellow-300">Space</span> {u.machineGun}
+        </span>
+        <span>
+          <span className="text-yellow-300">J</span> {u.laser}
+        </span>
+        <span>
+          <span className="text-yellow-300">K</span> {u.bomb}
+        </span>
+        <span>
+          <span className="text-yellow-300">B</span> {u.abombHint}
+        </span>
+        <span>
+          <span className="text-yellow-300">Q/E</span> {u.trick}
+        </span>
+        <span>
+          <span className="text-yellow-300">Esc/P</span> {u.pause}
+        </span>
+        <span>
+          <span className="text-yellow-300">R</span> {u.restart}
+        </span>
       </div>
 
-      <Link to="/" className="text-sm underline hover:opacity-80" style={{ color: accent2 }}>{u.back}</Link>
+      <Link to="/" className="text-sm underline hover:opacity-80" style={{ color: accent2 }}>
+        {u.back}
+      </Link>
 
       {/* Name modal */}
       {showNameModal && (
@@ -381,21 +469,39 @@ function PlayPage() {
 }
 
 function NameModal({
-  initial, placeholder, label, submitLabel, accent, accent2, onSubmit,
+  initial,
+  placeholder,
+  label,
+  submitLabel,
+  accent,
+  accent2,
+  onSubmit,
 }: {
-  initial: string; placeholder: string; label: string; submitLabel: string;
-  accent: string; accent2: string;
+  initial: string;
+  placeholder: string;
+  label: string;
+  submitLabel: string;
+  accent: string;
+  accent2: string;
   onSubmit: (v: string) => void;
 }) {
   const [val, setVal] = useState(initial);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.85)" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.85)" }}
+    >
       <form
-        onSubmit={(e) => { e.preventDefault(); onSubmit(val); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(val);
+        }}
         className="border-2 px-8 py-6 flex flex-col gap-3 font-mono"
         style={{ borderColor: accent, background: "#000" }}
       >
-        <label className="text-sm tracking-widest" style={{ color: accent }}>{label}</label>
+        <label className="text-sm tracking-widest" style={{ color: accent }}>
+          {label}
+        </label>
         <input
           autoFocus
           value={val}

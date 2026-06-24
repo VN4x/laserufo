@@ -5,6 +5,7 @@
 ## Mehaanika
 
 **Juhtimine (klaviatuur):**
+
 - Nooled / WASD — lendamine (üles/alla/edasi/tagasi)
 - Tühik — kuulipilduja (lõpmatu, põhirelv)
 - J — laser (kulutab manat)
@@ -12,17 +13,20 @@
 - Shift + nool — tünnirull / looping (trikk)
 
 **Vaenlased:**
+
 - Väikesed UFO-d (kiired, sik-sak liikumine)
 - Suured emalaevad (palju HP, tulistavad plasmat)
 - Pommitajad-UFO-d (heidavad pomme alla)
 - Boss iga 5 laine järel
 
 **Mana süsteem:**
+
 - Mana riba täitub trikkide tegemisel
 - Kulub laserite ja pommide kasutamisel
 - Kui mana täis (100%) → +1 elu ja riba läheb nulli
 
 **Trikid (annavad manat):**
+
 - Akrobaatika (tünnirull, looping) → +10 mana
 - Lähedalt möödalend (UFO-st või kuulist <30px) → +5 mana, näitab "NEAR MISS!" teksti
 - Kombo tapmised (3+ vaenlast 2 sekundi jooksul) → +15 mana, näitab combo-loendurit

@@ -5,10 +5,26 @@ import { t } from "./i18n";
 import { unlock, bumpAbomb } from "./achievements";
 import { Music } from "./music";
 import { recordRun, recordLevelTime } from "./stats";
+import { SeededRNG } from "./rng";
+import type { Input, Snapshot } from "./protocol";
+import { EMPTY_INPUT } from "./protocol";
+
+export type { Input, Snapshot };
+
+export type GameMode = "single" | "coop";
+
+export interface CoopConfig {
+  localId: string;
+  isHost: boolean;
+  playerNames: Map<string, string>;
+  seed?: number;
+  onInputRelay?: (playerId: string, input: Input) => void;
+  onSnapshot?: (snap: Snapshot) => void;
+}
+
 
 export type BossVariant = "saucer" | "insect" | "monster" | "spectre";
 const BOSS_CYCLE: BossVariant[] = ["saucer", "insect", "monster", "spectre"];
-
 
 export const VW = 480;
 export const VH = 270;
@@ -24,6 +40,8 @@ interface Entity {
 }
 
 interface Player extends Entity {
+  playerId: string;
+  displayName?: string;
   hp: number;
   lives: number;
   mana: number;
@@ -39,6 +57,7 @@ interface Player extends Entity {
 }
 
 interface Enemy extends Entity {
+  netId: number;
   kind: "ufo" | "mother" | "bomber" | "boss";
   hp: number;
   maxHp: number;
@@ -50,22 +69,32 @@ interface Enemy extends Entity {
   level?: number;
 }
 
-
 interface Projectile extends Entity {
+  netId: number;
   damage: number;
-  fromPlayer: boolean;
+  fromPlayerId: string | null;
   kind: "bullet" | "laser" | "bomb" | "plasma";
   life: number;
 }
 
 interface Particle {
-  x: number; y: number; vx: number; vy: number;
-  life: number; maxLife: number;
-  color: string; size: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
 }
 
 interface FloatText {
-  x: number; y: number; vy: number; life: number; text: string; color: string;
+  x: number;
+  y: number;
+  vy: number;
+  life: number;
+  text: string;
+  color: string;
 }
 
 export interface GameStats {
@@ -82,19 +111,31 @@ export interface GameStats {
   paused: boolean;
 }
 
-interface Input {
-  up: boolean; down: boolean; left: boolean; right: boolean;
-  mg: boolean; laser: boolean; bomb: boolean; abomb: boolean;
-  trickL: boolean; trickR: boolean;
-}
-
 const ENT_SCALE = 1.3;
 const START_LIVES = 5;
 const SHIELD_COST = 25;
 
 export class Game {
   ctx: CanvasRenderingContext2D;
-  player!: Player;
+  mode: GameMode = "single";
+  coop: CoopConfig | null = null;
+  localId = "local";
+  players = new Map<string, Player>();
+  remoteInputs = new Map<string, Input>();
+  rng = new SeededRNG(Date.now());
+  tick = 0;
+  nextEnemyId = 1;
+  nextProjectileId = 1;
+  snapshotInterval = 0;
+
+  get player(): Player {
+    return this.players.get(this.localId)!;
+  }
+
+  get simulating(): boolean {
+    return this.mode === "single" || (this.coop?.isHost ?? false);
+  }
+
   enemies: Enemy[] = [];
   projectiles: Projectile[] = [];
   particles: Particle[] = [];
@@ -102,10 +143,7 @@ export class Game {
   stars: { x: number; y: number; z: number }[] = [];
   mountains: { x: number; h: number }[] = [];
 
-  input: Input = {
-    up: false, down: false, left: false, right: false,
-    mg: false, laser: false, bomb: false, abomb: false, trickL: false, trickR: false,
-  };
+  input: Input = { ...EMPTY_INPUT };
 
   wave = 0;
   waveTimer = 0;
@@ -127,13 +165,23 @@ export class Game {
   levelStartedAt = 0;
   runRecorded = false;
 
-  constructor(ctx: CanvasRenderingContext2D, onStats: (s: GameStats) => void) {
+  constructor(ctx: CanvasRenderingContext2D, onStats: (s: GameStats) => void, coop?: CoopConfig) {
     this.ctx = ctx;
     this.onStats = onStats;
     this.audio = new AudioCtx();
+    if (coop) {
+      this.mode = "coop";
+      this.coop = coop;
+      this.localId = coop.localId;
+      if (coop.seed != null) this.rng = new SeededRNG(coop.seed);
+    }
     this.reset();
     for (let i = 0; i < 80; i++) {
-      this.stars.push({ x: Math.random() * VW, y: Math.random() * VH, z: Math.random() * 0.8 + 0.2 });
+      this.stars.push({
+        x: Math.random() * VW,
+        y: Math.random() * VH,
+        z: Math.random() * 0.8 + 0.2,
+      });
     }
     for (let i = 0; i < 12; i++) {
       this.mountains.push({ x: i * 60, h: 30 + Math.random() * 40 });
@@ -141,17 +189,46 @@ export class Game {
   }
 
   reset() {
-    this.player = {
-      pos: { x: 80, y: VH / 2 },
-      vel: { x: 0, y: 0 },
-      w: 31, h: 13,
-      alive: true,
-      hp: START_LIVES, lives: START_LIVES,
-      mana: 0, maxMana: 100,
-      invuln: 0,
-      rotation: 0, spinning: false, spinAccum: 0, spinDir: 0,
-      mgCool: 0, laserCool: 0, bombCool: 0,
+    this.players.clear();
+    this.remoteInputs.clear();
+    this.nextEnemyId = 1;
+    this.nextProjectileId = 1;
+    this.tick = 0;
+
+    const spawnPlayer = (id: string, slot: number) => {
+      const y = VH / 2 + (slot - 1.5) * 28;
+      this.players.set(id, {
+        playerId: id,
+        displayName: this.coop?.playerNames.get(id),
+        pos: { x: 60 + slot * 18, y: Math.max(20, Math.min(VH - 40, y)) },
+        vel: { x: 0, y: 0 },
+        w: 31,
+        h: 13,
+        alive: true,
+        hp: START_LIVES,
+        lives: START_LIVES,
+        mana: 0,
+        maxMana: 100,
+        invuln: 0,
+        rotation: 0,
+        spinning: false,
+        spinAccum: 0,
+        spinDir: 0,
+        mgCool: 0,
+        laserCool: 0,
+        bombCool: 0,
+      });
     };
+
+    if (this.mode === "coop" && this.coop) {
+      let slot = 0;
+      for (const id of this.coop.playerNames.keys()) {
+        spawnPlayer(id, slot++);
+      }
+      if (!this.players.has(this.localId)) spawnPlayer(this.localId, slot);
+    } else {
+      spawnPlayer(this.localId, 0);
+    }
     this.enemies = [];
     this.projectiles = [];
     this.particles = [];
@@ -178,18 +255,55 @@ export class Game {
   }
 
   emitStats() {
+    const p = this.player;
     this.onStats({
       score: this.score,
       wave: this.wave,
       level: this.getLevel(),
       levelTime: Math.max(0, this.time - this.levelStartedAt),
-      lives: this.player.lives,
-      mana: Math.floor(this.player.mana),
-      maxMana: this.player.maxMana,
+      lives: p.lives,
+      mana: Math.floor(p.mana),
+      maxMana: p.maxMana,
       kills: this.kills,
       bosses: this.bossesKilled,
       gameOver: this.gameOver,
       paused: this.paused,
+    });
+  }
+
+  rand(): number {
+    return this.simulating ? this.rng.next() : Math.random();
+  }
+
+  startCoop(seed: number) {
+    this.rng = new SeededRNG(seed);
+    this.reset();
+  }
+
+  addCoopPlayer(id: string, name: string, slot: number) {
+    if (this.players.has(id)) return;
+    this.coop?.playerNames.set(id, name);
+    const y = VH / 2 + (slot - 1.5) * 28;
+    this.players.set(id, {
+      playerId: id,
+      displayName: name,
+      pos: { x: 60 + slot * 18, y: Math.max(20, Math.min(VH - 40, y)) },
+      vel: { x: 0, y: 0 },
+      w: 31,
+      h: 13,
+      alive: true,
+      hp: START_LIVES,
+      lives: START_LIVES,
+      mana: 0,
+      maxMana: 100,
+      invuln: 0,
+      rotation: 0,
+      spinning: false,
+      spinAccum: 0,
+      spinDir: 0,
+      mgCool: 0,
+      laserCool: 0,
+      bombCool: 0,
     });
   }
 
@@ -215,23 +329,26 @@ export class Game {
     }
     this.spawnQueue = [];
     if (isBoss) {
-      const variant = BOSS_CYCLE[(Math.floor((this.wave - 5) / 5)) % BOSS_CYCLE.length];
+      const variant = BOSS_CYCLE[Math.floor((this.wave - 5) / 5) % BOSS_CYCLE.length];
       this.spawnQueue.push({ t: 1, kind: "boss", variant });
       Music.play("boss");
       this.audio.alarm();
     } else {
       const count = 4 + Math.floor(this.wave * 1.5);
       for (let i = 0; i < count; i++) {
-        const r = Math.random();
+        const r = this.rand();
         const kind: Enemy["kind"] = r < 0.65 ? "ufo" : r < 0.85 ? "bomber" : "mother";
-        this.spawnQueue.push({ t: i * 0.8 + 0.5, kind, y: 40 + Math.random() * (VH - 80) });
+        this.spawnQueue.push({ t: i * 0.8 + 0.5, kind, y: 40 + this.rand() * (VH - 80) });
       }
       Music.play("battle");
       if (prevWave > 0) this.audio.waveClear();
     }
     this.waveTimer = 0;
     this.floats.push({
-      x: VW / 2 - 30, y: VH / 2 - 20, vy: -0.2, life: 90,
+      x: VW / 2 - 30,
+      y: VH / 2 - 20,
+      vy: -0.2,
+      life: 90,
       text: isBoss
         ? `${t().bossWave} ${this.wave} — LVL ${level}`
         : `${t().wave} ${this.wave} — LVL ${level}`,
@@ -239,38 +356,84 @@ export class Game {
     });
   }
 
-  getLevel() { return Math.floor((this.wave - 1) / 5) + 1; }
+  getLevel() {
+    return Math.floor((this.wave - 1) / 5) + 1;
+  }
 
   spawnEnemy(kind: Enemy["kind"], y?: number, variant?: BossVariant) {
     const level = this.getLevel();
-    const yy = y ?? 40 + Math.random() * (VH - 80);
+    const yy = y ?? 40 + this.rand() * (VH - 80);
+    const netId = this.nextEnemyId++;
     if (kind === "ufo") {
       this.enemies.push({
-        pos: { x: VW + 20, y: yy }, vel: { x: -(1.0 + Math.random() * 0.7), y: 0 },
-        w: 23, h: 13, alive: true, kind, hp: 1, maxHp: 1, shootCool: 60 + Math.random() * 60,
-        age: 0, baseY: yy, amp: 20 + Math.random() * 20, level,
+        netId,
+        pos: { x: VW + 20, y: yy },
+        vel: { x: -(1.0 + this.rand() * 0.7), y: 0 },
+        w: 23,
+        h: 13,
+        alive: true,
+        kind,
+        hp: 1,
+        maxHp: 1,
+        shootCool: 60 + this.rand() * 60,
+        age: 0,
+        baseY: yy,
+        amp: 20 + this.rand() * 20,
+        level,
       });
     } else if (kind === "bomber") {
       this.enemies.push({
-        pos: { x: VW + 20, y: 40 + Math.random() * 60 }, vel: { x: -0.6, y: 0 },
-        w: 29, h: 16, alive: true, kind, hp: 2, maxHp: 2, shootCool: 90,
-        age: 0, baseY: 0, amp: 0, level,
+        netId,
+        pos: { x: VW + 20, y: 40 + this.rand() * 60 },
+        vel: { x: -0.6, y: 0 },
+        w: 29,
+        h: 16,
+        alive: true,
+        kind,
+        hp: 2,
+        maxHp: 2,
+        shootCool: 90,
+        age: 0,
+        baseY: 0,
+        amp: 0,
+        level,
       });
     } else if (kind === "mother") {
       this.enemies.push({
-        pos: { x: VW + 30, y: yy }, vel: { x: -0.42, y: 0 },
-        w: 42, h: 21, alive: true, kind, hp: 5, maxHp: 5, shootCool: 70,
-        age: 0, baseY: yy, amp: 10, level,
+        netId,
+        pos: { x: VW + 30, y: yy },
+        vel: { x: -0.42, y: 0 },
+        w: 42,
+        h: 21,
+        alive: true,
+        kind,
+        hp: 5,
+        maxHp: 5,
+        shootCool: 70,
+        age: 0,
+        baseY: yy,
+        amp: 10,
+        level,
       });
     } else {
       const hp = 40 + this.wave * 5;
       this.enemies.push({
-        pos: { x: VW + 50, y: VH / 2 }, vel: { x: -0.25, y: 0 },
-        w: 78, h: 47, alive: true, kind, hp, maxHp: hp,
-        shootCool: 40, age: 0, baseY: VH / 2, amp: 40,
-        variant: variant ?? "saucer", level,
+        netId,
+        pos: { x: VW + 50, y: VH / 2 },
+        vel: { x: -0.25, y: 0 },
+        w: 78,
+        h: 47,
+        alive: true,
+        kind,
+        hp,
+        maxHp: hp,
+        shootCool: 40,
+        age: 0,
+        baseY: VH / 2,
+        amp: 40,
+        variant: variant ?? "saucer",
+        level,
       });
-
     }
   }
 
@@ -290,12 +453,60 @@ export class Game {
       this.paused = !this.paused;
       this.emitStats();
     }
+
+    if (this.mode === "coop" && !this.coop?.isHost) {
+      this.coop?.onInputRelay?.(this.localId, { ...this.input });
+    }
+  }
+
+  setRemoteInput(playerId: string, input: Input) {
+    this.remoteInputs.set(playerId, input);
+  }
+
+  nearestLivingPlayer(ex: number, ey: number): Player | null {
+    let best: Player | null = null;
+    let bestD = Infinity;
+    for (const p of this.players.values()) {
+      if (p.lives <= 0) continue;
+      const d = Math.hypot(p.pos.x - ex, p.pos.y - ey);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  allPlayersDead(): boolean {
+    for (const p of this.players.values()) {
+      if (p.lives > 0) return false;
+    }
+    return true;
   }
 
   step(dt: number) {
-    if (this.paused || this.gameOver) { this.draw(); return; }
+    if (this.paused || this.gameOver) {
+      this.draw();
+      return;
+    }
+
+    if (!this.simulating) {
+      this.time += dt;
+      this.draw();
+      this.emitStats();
+      return;
+    }
+
+    this.tick += 1;
     this.time += dt;
-    this.updatePlayer(dt);
+
+    if (this.mode === "coop" && this.coop?.isHost) {
+      for (const [pid, input] of this.remoteInputs) {
+        if (pid !== this.localId) this.updatePlayer(dt, pid, input);
+      }
+    }
+    this.updatePlayer(dt, this.localId, this.input);
+
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
     this.updateParticles(dt);
@@ -305,6 +516,14 @@ export class Game {
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 60);
     this.draw();
     this.emitStats();
+
+    if (this.mode === "coop" && this.coop?.isHost) {
+      this.snapshotInterval += dt;
+      if (this.snapshotInterval >= 1 / 15) {
+        this.snapshotInterval = 0;
+        this.coop.onSnapshot?.(this.exportSnapshot());
+      }
+    }
   }
 
   updateCombo(dt: number) {
@@ -314,10 +533,11 @@ export class Game {
     }
   }
 
-  registerKill(e: Enemy, longShot: boolean) {
+  registerKill(e: Enemy, longShot: boolean, killerId?: string) {
     this.kills++;
     if (this.kills === 1) unlock("first_kill");
-    const baseScore = e.kind === "ufo" ? 100 : e.kind === "bomber" ? 150 : e.kind === "mother" ? 300 : 2000;
+    const baseScore =
+      e.kind === "ufo" ? 100 : e.kind === "bomber" ? 150 : e.kind === "mother" ? 300 : 2000;
     this.score += baseScore;
     if (this.score >= 10000) unlock("score_10k");
     this.comboCount++;
@@ -325,53 +545,76 @@ export class Game {
     if (this.comboCount >= 5) unlock("combo_5");
     if (this.comboCount >= 10) unlock("combo_10");
     if (this.comboCount >= 3) {
-      this.addMana(15, e.pos.x, e.pos.y - 8, `${t().combo} x${this.comboCount}`);
+      this.addMana(15, e.pos.x, e.pos.y - 8, `${t().combo} x${this.comboCount}`, killerId);
     }
     if (longShot) {
-      this.addMana(8, e.pos.x, e.pos.y - 16, t().precision);
+      this.addMana(8, e.pos.x, e.pos.y - 16, t().precision, killerId);
     }
     this.explode(e.pos.x, e.pos.y, e.kind === "boss" ? 40 : 14);
     this.shake = e.kind === "boss" ? 14 : 4;
     if (e.kind === "boss") {
       unlock("boss_down");
       this.bossesKilled++;
-      this.player.lives++;
-      this.floats.push({ x: e.pos.x - 16, y: e.pos.y - 20, vy: -0.3, life: 80, text: t().plusLife, color: "#7cffb0" });
+      const kp = this.players.get(killerId ?? this.localId);
+      if (kp) {
+        kp.lives++;
+        this.floats.push({
+          x: e.pos.x - 16,
+          y: e.pos.y - 20,
+          vy: -0.3,
+          life: 80,
+          text: t().plusLife,
+          color: "#7cffb0",
+        });
+      }
       this.audio.powerup();
       Music.play("battle");
     }
     this.audio.boom();
   }
 
-  addMana(amount: number, x: number, y: number, label: string) {
-    this.player.mana += amount;
+  addMana(amount: number, x: number, y: number, label: string, playerId?: string) {
+    const p = this.players.get(playerId ?? this.localId);
+    if (!p) return;
+    p.mana += amount;
     this.floats.push({ x, y, vy: -0.4, life: 60, text: `${label} +${amount}`, color: "#7cf0ff" });
     this.audio.ding();
-    if (this.player.mana >= this.player.maxMana) {
-      this.player.mana = 0;
-      this.player.lives++;
-      this.floats.push({ x: this.player.pos.x - 18, y: this.player.pos.y - 18, vy: -0.4, life: 80, text: t().plusLife, color: "#7cffb0" });
+    if (p.mana >= p.maxMana) {
+      p.mana = 0;
+      p.lives++;
+      this.floats.push({
+        x: p.pos.x - 18,
+        y: p.pos.y - 18,
+        vy: -0.4,
+        life: 80,
+        text: t().plusLife,
+        color: "#7cffb0",
+      });
       this.audio.powerup();
     }
   }
 
+  pushProjectile(pr: Omit<Projectile, "netId" | "alive">) {
+    this.projectiles.push({ ...pr, netId: this.nextProjectileId++, alive: true });
+  }
 
-  updatePlayer(dt: number) {
-    const p = this.player;
+  updatePlayer(dt: number, playerId: string, inp: Input) {
+    const p = this.players.get(playerId);
+    if (!p || p.lives <= 0) return;
     const speed = 1.87;
-    p.vel.x = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
-    p.vel.y = (this.input.down ? 1 : 0) - (this.input.up ? 1 : 0);
+    p.vel.x = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+    p.vel.y = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
     p.pos.x += p.vel.x * speed;
     p.pos.y += p.vel.y * speed * 0.9;
     p.pos.x = Math.max(10, Math.min(VW - 36, p.pos.x));
     p.pos.y = Math.max(15, Math.min(VH - 32, p.pos.y));
 
     // Trick: barrel roll / loop
-    if ((this.input.trickL || this.input.trickR) && !p.spinning) {
+    if ((inp.trickL || inp.trickR) && !p.spinning) {
       p.spinning = true;
       p.spinAccum = 0;
-      p.spinDir = this.input.trickR ? 1 : -1;
-      this.audio.whoosh();
+      p.spinDir = inp.trickR ? 1 : -1;
+      if (playerId === this.localId) this.audio.whoosh();
     }
     if (p.spinning) {
       const spd = 0.21;
@@ -380,7 +623,7 @@ export class Game {
       if (p.spinAccum >= Math.PI * 2) {
         p.spinning = false;
         p.rotation = 0;
-        this.addMana(10, p.pos.x, p.pos.y - 16, t().barrelRoll);
+        this.addMana(10, p.pos.x, p.pos.y - 16, t().barrelRoll, playerId);
       }
     }
 
@@ -390,43 +633,66 @@ export class Game {
     if (p.bombCool > 0) p.bombCool -= dt * 60;
 
     // Fire weapons
-    if (this.input.mg && p.mgCool <= 0) {
-      this.projectiles.push({
-        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 5.1, y: 0 },
-        w: 5, h: 2, alive: true, damage: 1, fromPlayer: true, kind: "bullet", life: 80,
+    if (inp.mg && p.mgCool <= 0) {
+      this.pushProjectile({
+        pos: { x: p.pos.x + 22, y: p.pos.y + 1 },
+        vel: { x: 5.1, y: 0 },
+        w: 5,
+        h: 2,
+        damage: 1,
+        fromPlayerId: playerId,
+        kind: "bullet",
+        life: 80,
       });
       p.mgCool = 6;
-      this.audio.shoot();
+      if (playerId === this.localId) this.audio.shoot();
     }
-    if (this.input.laser && p.laserCool <= 0 && p.mana >= 8) {
+    if (inp.laser && p.laserCool <= 0 && p.mana >= 8) {
       p.mana -= 8;
-      this.projectiles.push({
-        pos: { x: p.pos.x + 22, y: p.pos.y + 1 }, vel: { x: 7.65, y: 0 },
-        w: 30, h: 3, alive: true, damage: 5, fromPlayer: true, kind: "laser", life: 60,
+      this.pushProjectile({
+        pos: { x: p.pos.x + 22, y: p.pos.y + 1 },
+        vel: { x: 7.65, y: 0 },
+        w: 30,
+        h: 3,
+        damage: 5,
+        fromPlayerId: playerId,
+        kind: "laser",
+        life: 60,
       });
       p.laserCool = 18;
-      this.audio.laser();
+      if (playerId === this.localId) this.audio.laser();
     }
-    // K bomb — always available, no mana cost (fix: previously locked behind 20 mana)
-    if (this.input.bomb && p.bombCool <= 0) {
-      this.projectiles.push({
-        pos: { x: p.pos.x + 10, y: p.pos.y + 6 }, vel: { x: 1.7, y: 1.27 },
-        w: 6, h: 8, alive: true, damage: 30, fromPlayer: true, kind: "bomb", life: 200,
+    if (inp.bomb && p.bombCool <= 0) {
+      this.pushProjectile({
+        pos: { x: p.pos.x + 10, y: p.pos.y + 6 },
+        vel: { x: 1.7, y: 1.27 },
+        w: 6,
+        h: 8,
+        damage: 30,
+        fromPlayerId: playerId,
+        kind: "bomb",
+        life: 200,
       });
       p.bombCool = 30;
-      this.audio.drop();
+      if (playerId === this.localId) this.audio.drop();
     }
-    // A-BOMB: wipe all enemies on screen
-    if (this.input.abomb && p.mana >= 50) {
+    if (inp.abomb && p.mana >= 50 && playerId === this.localId) {
       p.mana -= 50;
       this.input.abomb = false;
       this.shake = 22;
       this.audio.aBomb();
       this.abombsThisRun++;
       bumpAbomb();
-      this.floats.push({ x: VW / 2 - 30, y: VH / 2 - 12, vy: -0.3, life: 70, text: t().aBomb, color: "#ffd84d" });
+      this.floats.push({
+        x: VW / 2 - 30,
+        y: VH / 2 - 12,
+        vy: -0.3,
+        life: 70,
+        text: t().aBomb,
+        color: "#ffd84d",
+      });
       for (let i = 0; i < 14; i++) {
-        this.explode(40 + Math.random() * (VW - 80), 20 + Math.random() * (VH - 60), 18);
+        this.explode(40 + this.rand() * (VW - 80), 20 + this.rand() * (VH - 60), 18);
       }
       for (const e of this.enemies) {
         if (!e.alive) continue;
@@ -434,37 +700,43 @@ export class Game {
           if (e.kind === "boss") {
             e.hp -= 25;
             this.explode(e.pos.x, e.pos.y, 30);
-            if (e.hp <= 0) { e.alive = false; this.registerKill(e, false); }
+            if (e.hp <= 0) {
+              e.alive = false;
+              this.registerKill(e, false, playerId);
+            }
           } else {
             e.alive = false;
-            this.registerKill(e, false);
+            this.registerKill(e, false, playerId);
           }
         }
       }
       for (const pr of this.projectiles) {
-        if (!pr.fromPlayer) pr.alive = false;
+        if (pr.fromPlayerId === null) pr.alive = false;
       }
     }
 
-    // Near-miss detection
+    // Near-miss detection (local player only for achievements)
+    if (playerId !== this.localId) return;
     for (const e of this.enemies) {
       if (!e.alive) continue;
-      const dx = e.pos.x - p.pos.x; const dy = e.pos.y - p.pos.y;
+      const dx = e.pos.x - p.pos.x;
+      const dy = e.pos.y - p.pos.y;
       const d = Math.hypot(dx, dy);
       const tagged = (e as unknown as { _nearMissed?: number })._nearMissed;
       if (d < 26 && d > 16 && !tagged && e.pos.x < p.pos.x + 30) {
         (e as unknown as { _nearMissed?: number })._nearMissed = this.time;
-        this.addMana(5, p.pos.x + 10, p.pos.y - 14, t().nearMiss);
+        this.addMana(5, p.pos.x + 10, p.pos.y - 14, t().nearMiss, playerId);
       }
     }
     for (const pr of this.projectiles) {
-      if (pr.fromPlayer || !pr.alive) continue;
-      const dx = pr.pos.x - p.pos.x; const dy = pr.pos.y - p.pos.y;
+      if (pr.fromPlayerId !== null || !pr.alive) continue;
+      const dx = pr.pos.x - p.pos.x;
+      const dy = pr.pos.y - p.pos.y;
       const d = Math.hypot(dx, dy);
       const tagged = (pr as unknown as { _nearMissed?: boolean })._nearMissed;
       if (d < 18 && d > 10 && !tagged) {
         (pr as unknown as { _nearMissed?: boolean })._nearMissed = true;
-        this.addMana(5, p.pos.x, p.pos.y - 14, t().dodge);
+        this.addMana(5, p.pos.x, p.pos.y - 14, t().dodge, playerId);
       }
     }
   }
@@ -480,24 +752,42 @@ export class Game {
         e.pos.y = e.baseY + Math.sin(e.age * 1.2) * e.amp;
         if (e.pos.x > VW - 80) {
           // come into view
-        } else { e.vel.x = 0; }
+        } else {
+          e.vel.x = 0;
+        }
       }
       e.shootCool -= dt * 60;
       if (e.shootCool <= 0 && e.pos.x < VW) {
         if (e.kind === "bomber") {
-          this.projectiles.push({
-            pos: { x: e.pos.x, y: e.pos.y + 8 }, vel: { x: -0.42, y: 1.27 },
-            w: 5, h: 7, alive: true, damage: 1, fromPlayer: false, kind: "bomb", life: 200,
+          this.pushProjectile({
+            pos: { x: e.pos.x, y: e.pos.y + 8 },
+            vel: { x: -0.42, y: 1.27 },
+            w: 5,
+            h: 7,
+            damage: 1,
+            fromPlayerId: null,
+            kind: "bomb",
+            life: 200,
           });
           e.shootCool = 90;
         } else {
-          const px = this.player.pos.x; const py = this.player.pos.y;
-          const dx = px - e.pos.x; const dy = py - e.pos.y;
+          const target = this.nearestLivingPlayer(e.pos.x, e.pos.y);
+          if (!target) continue;
+          const px = target.pos.x;
+          const py = target.pos.y;
+          const dx = px - e.pos.x;
+          const dy = py - e.pos.y;
           const d = Math.hypot(dx, dy) || 1;
           const sp = e.kind === "boss" ? 2.55 : 2.04;
-          this.projectiles.push({
-            pos: { x: e.pos.x, y: e.pos.y }, vel: { x: dx / d * sp, y: dy / d * sp },
-            w: 6, h: 6, alive: true, damage: 1, fromPlayer: false, kind: "plasma", life: 180,
+          this.pushProjectile({
+            pos: { x: e.pos.x, y: e.pos.y },
+            vel: { x: (dx / d) * sp, y: (dy / d) * sp },
+            w: 6,
+            h: 6,
+            damage: 1,
+            fromPlayerId: null,
+            kind: "plasma",
+            life: 180,
           });
           e.shootCool = e.kind === "boss" ? 28 : 100;
           this.audio.zap();
@@ -505,11 +795,10 @@ export class Game {
       }
       if (e.pos.x < -40) e.alive = false;
     }
-    this.enemies = this.enemies.filter(e => e.alive);
+    this.enemies = this.enemies.filter((e) => e.alive);
   }
 
   updateProjectiles(dt: number) {
-    const p = this.player;
     for (const pr of this.projectiles) {
       if (!pr.alive) continue;
       pr.pos.x += pr.vel.x;
@@ -517,61 +806,80 @@ export class Game {
       if (pr.kind === "bomb") pr.vel.y += 0.08;
       pr.life -= dt * 60;
       if (pr.life <= 0 || pr.pos.x < -20 || pr.pos.x > VW + 20 || pr.pos.y > VH || pr.pos.y < -20) {
-        if (pr.kind === "bomb" && pr.fromPlayer) this.explode(pr.pos.x, pr.pos.y, 30);
+        if (pr.kind === "bomb" && pr.fromPlayerId !== null) this.explode(pr.pos.x, pr.pos.y, 30);
         pr.alive = false;
         continue;
       }
-      if (pr.fromPlayer) {
+      if (pr.fromPlayerId !== null) {
+        const shooter = this.players.get(pr.fromPlayerId);
         for (const e of this.enemies) {
           if (!e.alive) continue;
           if (rectsHit(pr, e)) {
             e.hp -= pr.damage;
             this.particles.push({
-              x: pr.pos.x, y: pr.pos.y, vx: -1, vy: (Math.random() - 0.5) * 2,
-              life: 10, maxLife: 10, color: "#ffd84d", size: 2,
+              x: pr.pos.x,
+              y: pr.pos.y,
+              vx: -1,
+              vy: (Math.random() - 0.5) * 2,
+              life: 10,
+              maxLife: 10,
+              color: "#ffd84d",
+              size: 2,
             });
             if (pr.kind !== "laser") pr.alive = false;
             if (e.hp <= 0) {
               e.alive = false;
-              const longShot = (pr.pos.x - p.pos.x) > 200;
-              this.registerKill(e, longShot);
+              const longShot = shooter ? pr.pos.x - shooter.pos.x > 200 : false;
+              this.registerKill(e, longShot, pr.fromPlayerId);
             }
             if (pr.kind === "bomb") this.explode(pr.pos.x, pr.pos.y, 30);
             break;
           }
         }
       } else {
-        if (p.invuln <= 0 && rectsHit(pr, { pos: { x: p.pos.x, y: p.pos.y }, w: p.w, h: p.h } as Entity)) {
-          pr.alive = false;
-          this.hitPlayer();
+        for (const p of this.players.values()) {
+          if (p.lives <= 0 || p.invuln > 0) continue;
+          if (rectsHit(pr, { pos: { x: p.pos.x, y: p.pos.y }, w: p.w, h: p.h } as Entity)) {
+            pr.alive = false;
+            this.hitPlayer(p.playerId);
+            break;
+          }
         }
       }
     }
-    // Player-enemy collision
-    if (p.invuln <= 0) {
+    for (const p of this.players.values()) {
+      if (p.lives <= 0 || p.invuln > 0) continue;
       for (const e of this.enemies) {
         if (!e.alive) continue;
         if (rectsHit({ pos: p.pos, w: p.w, h: p.h } as Entity, e)) {
-          this.hitPlayer();
+          this.hitPlayer(p.playerId);
           e.hp -= 5;
-          if (e.hp <= 0) { e.alive = false; this.registerKill(e, false); }
+          if (e.hp <= 0) {
+            e.alive = false;
+            this.registerKill(e, false, p.playerId);
+          }
           break;
         }
       }
     }
-    this.projectiles = this.projectiles.filter(pr => pr.alive);
+    this.projectiles = this.projectiles.filter((pr) => pr.alive);
   }
 
-  hitPlayer() {
-    const p = this.player;
+  hitPlayer(playerId: string) {
+    const p = this.players.get(playerId);
+    if (!p) return;
     // MANA SHIELD: absorb the hit if enough mana
     if (p.mana >= SHIELD_COST) {
       p.mana -= SHIELD_COST;
       p.invuln = 60;
       this.shake = 6;
       this.floats.push({
-        x: p.pos.x - 10, y: p.pos.y - 16, vy: -0.4, life: 60,
-        text: t().shield, color: "#7cf0ff",
+        x: p.pos.x - 10,
+        y: p.pos.y - 16,
+        vy: -0.4,
+        life: 60,
+        text: t().shield,
+        color: "#7cf0ff",
       });
       this.audio.ding();
       unlock("shield_save");
@@ -584,23 +892,25 @@ export class Game {
     this.explode(p.pos.x + 10, p.pos.y + 4, 18);
     this.audio.hurt();
     if (p.lives <= 0) {
-      this.gameOver = true;
-      this.audio.gameOver();
-      Music.stop();
-      if (!this.runRecorded) {
-        this.runRecorded = true;
-        recordRun({
-          kills: this.kills,
-          waves: Math.max(0, this.wave - 1),
-          level: this.getLevel(),
-          bosses: this.bossesKilled,
-          abombs: this.abombsThisRun,
-          playtime: this.time,
-          score: this.score,
-        });
+      const shouldEnd = this.mode === "coop" ? this.allPlayersDead() : true;
+      if (shouldEnd) {
+        this.gameOver = true;
+        this.audio.gameOver();
+        Music.stop();
+        if (!this.runRecorded) {
+          this.runRecorded = true;
+          recordRun({
+            kills: this.kills,
+            waves: Math.max(0, this.wave - 1),
+            level: this.getLevel(),
+            bosses: this.bossesKilled,
+            abombs: this.abombsThisRun,
+            playtime: this.time,
+            score: this.score,
+          });
+        }
       }
     }
-
   }
 
   explode(x: number, y: number, count: number) {
@@ -609,8 +919,12 @@ export class Game {
       const a = Math.random() * Math.PI * 2;
       const s = 0.5 + Math.random() * 2.5;
       this.particles.push({
-        x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-        life: 20 + Math.random() * 20, maxLife: 30,
+        x,
+        y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: 20 + Math.random() * 20,
+        maxLife: 30,
         color: colors[Math.floor(Math.random() * colors.length)],
         size: 1 + Math.random() * 2,
       });
@@ -619,14 +933,20 @@ export class Game {
 
   updateParticles(dt: number) {
     for (const p of this.particles) {
-      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life -= dt * 60;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+      p.life -= dt * 60;
     }
-    this.particles = this.particles.filter(p => p.life > 0);
+    this.particles = this.particles.filter((p) => p.life > 0);
   }
 
   updateFloats(dt: number) {
-    for (const f of this.floats) { f.y += f.vy; f.life -= dt * 60; }
-    this.floats = this.floats.filter(f => f.life > 0);
+    for (const f of this.floats) {
+      f.y += f.vy;
+      f.life -= dt * 60;
+    }
+    this.floats = this.floats.filter((f) => f.life > 0);
   }
 
   updateSpawner(dt: number) {
@@ -640,12 +960,117 @@ export class Game {
     }
     for (const st of this.stars) {
       st.x -= st.z * 1.5;
-      if (st.x < 0) { st.x += VW; st.y = Math.random() * VH; }
+      if (st.x < 0) {
+        st.x += VW;
+        st.y = this.rand() * VH;
+      }
     }
     for (const m of this.mountains) {
       m.x -= 0.3;
-      if (m.x < -60) { m.x += 60 * this.mountains.length; m.h = 30 + Math.random() * 40; }
+      if (m.x < -60) {
+        m.x += 60 * this.mountains.length;
+        m.h = 30 + this.rand() * 40;
+      }
     }
+  }
+
+  exportSnapshot(): Snapshot {
+    return {
+      tick: this.tick,
+      wave: this.wave,
+      score: this.score,
+      kills: this.kills,
+      gameOver: this.gameOver,
+      players: [...this.players.values()].map((p) => ({
+        id: p.playerId,
+        name: p.displayName,
+        x: p.pos.x,
+        y: p.pos.y,
+        rot: p.rotation,
+        lives: p.lives,
+        mana: Math.floor(p.mana),
+        invuln: p.invuln,
+      })),
+      enemies: this.enemies
+        .filter((e) => e.alive)
+        .map((e) => ({
+          id: e.netId,
+          kind: e.kind,
+          x: e.pos.x,
+          y: e.pos.y,
+          hp: e.hp,
+          maxHp: e.maxHp,
+          variant: e.variant,
+        })),
+      projectiles: this.projectiles
+        .filter((p) => p.alive)
+        .map((p) => ({
+          id: p.netId,
+          x: p.pos.x,
+          y: p.pos.y,
+          kind: p.kind,
+          fromPlayerId: p.fromPlayerId,
+        })),
+    };
+  }
+
+  applySnapshot(snap: Snapshot) {
+    this.tick = snap.tick;
+    this.wave = snap.wave;
+    this.score = snap.score;
+    this.kills = snap.kills;
+    this.gameOver = snap.gameOver;
+
+    for (const ps of snap.players) {
+      let p = this.players.get(ps.id);
+      if (!p) {
+        this.addCoopPlayer(ps.id, ps.name ?? "PILOT", this.players.size);
+        p = this.players.get(ps.id);
+      }
+      if (!p) continue;
+      p.pos.x = ps.x;
+      p.pos.y = ps.y;
+      p.rotation = ps.rot;
+      p.lives = ps.lives;
+      p.mana = ps.mana;
+      p.invuln = ps.invuln;
+      if (ps.name) p.displayName = ps.name;
+    }
+
+    this.enemies = snap.enemies.map((e) => ({
+      netId: e.id,
+      pos: { x: e.x, y: e.y },
+      vel: { x: -1, y: 0 },
+      w: e.kind === "boss" ? 78 : e.kind === "mother" ? 42 : 23,
+      h: e.kind === "boss" ? 47 : e.kind === "mother" ? 21 : 13,
+      alive: true,
+      kind: e.kind as Enemy["kind"],
+      hp: e.hp,
+      maxHp: e.maxHp,
+      shootCool: 60,
+      age: 0,
+      baseY: e.y,
+      amp: 20,
+      variant: e.variant as BossVariant | undefined,
+      level: this.getLevel(),
+    }));
+
+    this.projectiles = snap.projectiles.map((p) => ({
+      netId: p.id,
+      pos: { x: p.x, y: p.y },
+      vel: { x: p.fromPlayerId ? 5 : -2, y: 0 },
+      w: 6,
+      h: 6,
+      alive: true,
+      damage: 1,
+      fromPlayerId: p.fromPlayerId,
+      kind: p.kind as Projectile["kind"],
+      life: 60,
+    }));
+
+    this.nextEnemyId = Math.max(this.nextEnemyId, ...snap.enemies.map((e) => e.id), 0) + 1;
+    this.nextProjectileId =
+      Math.max(this.nextProjectileId, ...snap.projectiles.map((p) => p.id), 0) + 1;
   }
 
   draw() {
@@ -669,7 +1094,9 @@ export class Game {
     }
     // Sun
     ctx.fillStyle = pal.sun;
-    ctx.beginPath(); ctx.arc(VW - 80, VH - 80, 40, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(VW - 80, VH - 80, 40, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = pal.bg;
     for (let i = 0; i < 5; i++) ctx.fillRect(VW - 130, VH - 70 + i * 8, 100, 3);
     // Mountains
@@ -679,7 +1106,8 @@ export class Game {
       ctx.moveTo(m.x, VH - 40);
       ctx.lineTo(m.x + 30, VH - 40 - m.h);
       ctx.lineTo(m.x + 60, VH - 40);
-      ctx.closePath(); ctx.fill();
+      ctx.closePath();
+      ctx.fill();
     }
     // Ground line
     ctx.fillStyle = pal.ground;
@@ -692,12 +1120,15 @@ export class Game {
     ctx.lineWidth = 0.5;
     for (let i = 0; i < 10; i++) {
       const y = VH - 40 + i * 4;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VW, y); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(VW, y);
+      ctx.stroke();
     }
 
     // Projectiles (enemy)
     for (const pr of this.projectiles) {
-      if (pr.fromPlayer) continue;
+      if (pr.fromPlayerId !== null) continue;
       if (pr.kind === "plasma") {
         ctx.fillStyle = pal.plasma;
         ctx.fillRect(Math.floor(pr.pos.x - 3), Math.floor(pr.pos.y - 3), 6, 6);
@@ -712,7 +1143,7 @@ export class Game {
     for (const e of this.enemies) this.drawEnemy(e);
     // Player projectiles
     for (const pr of this.projectiles) {
-      if (!pr.fromPlayer) continue;
+      if (pr.fromPlayerId === null) continue;
       if (pr.kind === "bullet") {
         ctx.fillStyle = pal.bullet;
         ctx.fillRect(Math.floor(pr.pos.x), Math.floor(pr.pos.y), 5, 2);
@@ -728,8 +1159,10 @@ export class Game {
         ctx.fillRect(Math.floor(pr.pos.x), Math.floor(pr.pos.y - 4), 1, 2);
       }
     }
-    // Player
-    this.drawPlayer();
+    // Players
+    for (const pl of this.players.values()) {
+      this.drawPlayer(pl, pl.playerId === this.localId);
+    }
     // Particles
     for (const p of this.particles) {
       const a = p.life / p.maxLife;
@@ -774,18 +1207,18 @@ export class Game {
     }
   }
 
-  drawPlayer() {
-    const p = this.player;
+  drawPlayer(p: Player, isLocal: boolean) {
     const ctx = this.ctx;
     const pal = P();
+    if (p.lives <= 0) return;
     if (p.invuln > 0 && Math.floor(p.invuln / 4) % 2 === 0) return;
     ctx.save();
     ctx.translate(p.pos.x + 16, p.pos.y + 7);
     ctx.rotate(p.rotation);
     ctx.scale(ENT_SCALE, ENT_SCALE);
-    ctx.fillStyle = pal.playerBody;
+    ctx.fillStyle = isLocal ? pal.playerBody : pal.playerWing;
     ctx.fillRect(-12, -2, 22, 4);
-    ctx.fillStyle = pal.playerWing;
+    ctx.fillStyle = isLocal ? pal.playerWing : pal.playerTail;
     ctx.fillRect(-4, -6, 8, 12);
     ctx.fillStyle = pal.playerTail;
     ctx.fillRect(-10, -4, 3, 8);
@@ -798,6 +1231,11 @@ export class Game {
     ctx.fillStyle = pal.exhaust2;
     ctx.fillRect(-18, -1, 3, 2);
     ctx.restore();
+    if (p.displayName && this.mode === "coop") {
+      ctx.font = "bold 7px monospace";
+      ctx.fillStyle = isLocal ? pal.hudAccent : pal.laserCore;
+      ctx.fillText(p.displayName.slice(0, 8), p.pos.x, p.pos.y - 4);
+    }
   }
 
   drawEnemy(e: Enemy) {
@@ -862,7 +1300,6 @@ export class Game {
     ctx.restore();
   }
 
-
   drawBoss(e: Enemy) {
     const ctx = this.ctx;
     const pal = P();
@@ -877,10 +1314,15 @@ export class Game {
       ctx.fillRect(-30, -26, Math.floor(60 * hpFrac), 3);
     };
     if (v === "saucer") {
-      ctx.fillStyle = pal.bossTop; ctx.fillRect(-30, -8, 60, 16);
-      ctx.fillStyle = pal.bossBot; ctx.fillRect(-30, 8, 60, 8);
-      ctx.fillStyle = pal.bossDome; ctx.fillRect(-16, -14, 32, 6);
-      ctx.fillStyle = pal.laserCore; ctx.fillRect(-12, -12, 4, 2); ctx.fillRect(8, -12, 4, 2);
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-30, -8, 60, 16);
+      ctx.fillStyle = pal.bossBot;
+      ctx.fillRect(-30, 8, 60, 8);
+      ctx.fillStyle = pal.bossDome;
+      ctx.fillRect(-16, -14, 32, 6);
+      ctx.fillStyle = pal.laserCore;
+      ctx.fillRect(-12, -12, 4, 2);
+      ctx.fillRect(8, -12, 4, 2);
       ctx.fillStyle = pal.bossLight;
       for (let i = 0; i < 6; i++) {
         const on = Math.floor(e.age * 8 + i) % 2 === 0;
@@ -901,13 +1343,18 @@ export class Game {
       ctx.fillRect(2, -16 - flap, 16, 6);
       ctx.globalAlpha = 1;
       // Head + mandibles + eyes
-      ctx.fillStyle = pal.bossTop; ctx.fillRect(22, -6, 12, 12);
-      ctx.fillStyle = pal.laserCore; ctx.fillRect(26, -4, 3, 3); ctx.fillRect(26, 1, 3, 3);
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(22, -6, 12, 12);
+      ctx.fillStyle = pal.laserCore;
+      ctx.fillRect(26, -4, 3, 3);
+      ctx.fillRect(26, 1, 3, 3);
       ctx.fillStyle = pal.bossLight;
-      ctx.fillRect(34, -7, 3, 2); ctx.fillRect(34, 5, 3, 2);
+      ctx.fillRect(34, -7, 3, 2);
+      ctx.fillRect(34, 5, 3, 2);
       // Antennae
       ctx.fillStyle = pal.bossLight;
-      ctx.fillRect(28, -12, 1, 4); ctx.fillRect(32, -12, 1, 4);
+      ctx.fillRect(28, -12, 1, 4);
+      ctx.fillRect(32, -12, 1, 4);
     } else if (v === "monster") {
       // Lumpy bulb body
       ctx.fillStyle = pal.bossBot;
@@ -919,10 +1366,12 @@ export class Game {
       for (let i = 0; i < 6; i++) ctx.fillRect(-20 + i * 8, -18, 3, 4);
       // Big eyes
       ctx.fillStyle = pal.laserCore;
-      ctx.fillRect(-14, -4, 6, 6); ctx.fillRect(8, -4, 6, 6);
+      ctx.fillRect(-14, -4, 6, 6);
+      ctx.fillRect(8, -4, 6, 6);
       ctx.fillStyle = "#000";
       const blink = Math.floor(e.age * 2) % 8 === 0 ? 1 : 0;
-      ctx.fillRect(-12, -2 + blink, 2, 2); ctx.fillRect(10, -2 + blink, 2, 2);
+      ctx.fillRect(-12, -2 + blink, 2, 2);
+      ctx.fillRect(10, -2 + blink, 2, 2);
       // Jagged teeth
       ctx.fillStyle = pal.bossLight;
       for (let i = 0; i < 8; i++) {
@@ -943,9 +1392,11 @@ export class Game {
       // Hollow eyes (glowing)
       ctx.globalAlpha = 1;
       ctx.fillStyle = pal.bossDome;
-      ctx.fillRect(-12, -6, 6, 6); ctx.fillRect(6, -6, 6, 6);
+      ctx.fillRect(-12, -6, 6, 6);
+      ctx.fillRect(6, -6, 6, 6);
       ctx.fillStyle = pal.laserCore;
-      ctx.fillRect(-10, -4, 2, 2); ctx.fillRect(8, -4, 2, 2);
+      ctx.fillRect(-10, -4, 2, 2);
+      ctx.fillRect(8, -4, 2, 2);
       // Crown halo
       ctx.fillStyle = pal.bossLight;
       ctx.globalAlpha = 0.7;
@@ -955,55 +1406,105 @@ export class Game {
   }
 }
 
-
 function rectsHit(a: { pos: Vec; w: number; h: number }, b: { pos: Vec; w: number; h: number }) {
-  return a.pos.x < b.pos.x + b.w / 2 + a.w / 2 &&
+  return (
+    a.pos.x < b.pos.x + b.w / 2 + a.w / 2 &&
     a.pos.x + a.w / 2 > b.pos.x - b.w / 2 &&
     a.pos.y < b.pos.y + b.h / 2 + a.h / 2 &&
-    a.pos.y + a.h / 2 > b.pos.y - b.h / 2;
+    a.pos.y + a.h / 2 > b.pos.y - b.h / 2
+  );
 }
 
 // Web Audio chiptune — routed through Music's sfx gain for volume control
 class AudioCtx {
-  ensure(): AudioContext | null { return Music.ensure(); }
+  ensure(): AudioContext | null {
+    return Music.ensure();
+  }
   private dest(): AudioNode | null {
-    const ac = this.ensure(); if (!ac) return null;
+    const ac = this.ensure();
+    if (!ac) return null;
     return Music.getSfxNode() ?? ac.destination;
   }
   beep(freq: number, dur: number, type: OscillatorType = "square", vol = 0.05) {
-    const ac = this.ensure(); const d = this.dest(); if (!ac || !d) return;
-    const o = ac.createOscillator(); const g = ac.createGain();
-    o.type = type; o.frequency.value = freq;
+    const ac = this.ensure();
+    const d = this.dest();
+    if (!ac || !d) return;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type;
+    o.frequency.value = freq;
     g.gain.value = vol;
-    o.connect(g); g.connect(d);
+    o.connect(g);
+    g.connect(d);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
     o.stop(ac.currentTime + dur);
   }
   sweep(f0: number, f1: number, dur: number, type: OscillatorType = "sawtooth", vol = 0.06) {
-    const ac = this.ensure(); const d = this.dest(); if (!ac || !d) return;
-    const o = ac.createOscillator(); const g = ac.createGain();
+    const ac = this.ensure();
+    const d = this.dest();
+    if (!ac || !d) return;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
     o.type = type;
     o.frequency.setValueAtTime(f0, ac.currentTime);
     o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), ac.currentTime + dur);
     g.gain.value = vol;
-    o.connect(g); g.connect(d);
+    o.connect(g);
+    g.connect(d);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
     o.stop(ac.currentTime + dur);
   }
-  shoot() { this.beep(880, 0.04, "square", 0.03); }
-  laser() { this.beep(1400, 0.12, "sawtooth", 0.04); }
-  drop()  { this.beep(220, 0.15, "triangle", 0.05); }
-  boom()  { this.beep(120, 0.25, "square", 0.07); this.beep(80, 0.3, "sawtooth", 0.05); }
-  hurt()  { this.beep(180, 0.2, "sawtooth", 0.07); }
-  zap()   { this.beep(660, 0.06, "square", 0.025); }
-  ding()  { this.beep(1760, 0.08, "triangle", 0.04); }
-  whoosh(){ this.beep(440, 0.18, "sine", 0.04); }
-  gameOver(){ [440,330,220,150].forEach((f,i)=>setTimeout(()=>this.beep(f,0.25,"square",0.06), i*180)); }
-  aBomb(){ this.beep(90,0.5,"sawtooth",0.09); this.beep(60,0.6,"square",0.07); setTimeout(()=>this.beep(140,0.3,"square",0.06),120); }
-  alarm() { [0,180,360].forEach(d => setTimeout(() => { this.beep(880, 0.15, "square", 0.06); this.beep(660, 0.15, "square", 0.05); }, d)); }
-  waveClear() { [523, 659, 784, 1046].forEach((f,i) => setTimeout(()=>this.beep(f, 0.12, "triangle", 0.06), i*70)); }
-  powerup() { this.sweep(440, 1760, 0.25, "square", 0.05); }
+  shoot() {
+    this.beep(880, 0.04, "square", 0.03);
+  }
+  laser() {
+    this.beep(1400, 0.12, "sawtooth", 0.04);
+  }
+  drop() {
+    this.beep(220, 0.15, "triangle", 0.05);
+  }
+  boom() {
+    this.beep(120, 0.25, "square", 0.07);
+    this.beep(80, 0.3, "sawtooth", 0.05);
+  }
+  hurt() {
+    this.beep(180, 0.2, "sawtooth", 0.07);
+  }
+  zap() {
+    this.beep(660, 0.06, "square", 0.025);
+  }
+  ding() {
+    this.beep(1760, 0.08, "triangle", 0.04);
+  }
+  whoosh() {
+    this.beep(440, 0.18, "sine", 0.04);
+  }
+  gameOver() {
+    [440, 330, 220, 150].forEach((f, i) =>
+      setTimeout(() => this.beep(f, 0.25, "square", 0.06), i * 180),
+    );
+  }
+  aBomb() {
+    this.beep(90, 0.5, "sawtooth", 0.09);
+    this.beep(60, 0.6, "square", 0.07);
+    setTimeout(() => this.beep(140, 0.3, "square", 0.06), 120);
+  }
+  alarm() {
+    [0, 180, 360].forEach((d) =>
+      setTimeout(() => {
+        this.beep(880, 0.15, "square", 0.06);
+        this.beep(660, 0.15, "square", 0.05);
+      }, d),
+    );
+  }
+  waveClear() {
+    [523, 659, 784, 1046].forEach((f, i) =>
+      setTimeout(() => this.beep(f, 0.12, "triangle", 0.06), i * 70),
+    );
+  }
+  powerup() {
+    this.sweep(440, 1760, 0.25, "square", 0.05);
+  }
 }
-

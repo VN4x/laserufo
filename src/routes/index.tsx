@@ -9,7 +9,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "F16 Fury — Retro Arcade Lendurimäng" },
-      { name: "description", content: "Juhi F16 hävitajat, tulista UFO-sid laserite, pommide ja kuulipildujaga. Tee trikke, kasvata manat, võida elusid." },
+      {
+        name: "description",
+        content:
+          "Juhi F16 hävitajat, tulista UFO-sid laserite, pommide ja kuulipildujaga. Tee trikke, kasvata manat, võida elusid.",
+      },
       { property: "og:title", content: "F16 Fury" },
       { property: "og:description", content: "Retro 80ndate arcade lendurimäng — F16 vs UFO-d." },
     ],
@@ -31,16 +35,26 @@ function Index() {
     if (typeof window === "undefined") return;
     // Load both score formats (v2 = with names; v1 = legacy)
     let parsed: Score[] = [];
-    try { parsed = JSON.parse(localStorage.getItem("f16fury_highscores_v2") || "[]"); } catch { /* */ }
+    try {
+      parsed = JSON.parse(localStorage.getItem("f16fury_highscores_v2") || "[]");
+    } catch {
+      /* */
+    }
     if (parsed.length === 0) {
-      try { parsed = JSON.parse(localStorage.getItem("f16fury_highscores") || "[]"); } catch { /* */ }
+      try {
+        parsed = JSON.parse(localStorage.getItem("f16fury_highscores") || "[]");
+      } catch {
+        /* */
+      }
     }
     setScores(parsed);
 
     const savedLang = (localStorage.getItem("f16fury_lang") as Lang) || "et";
     const savedTheme = (localStorage.getItem("f16fury_theme") as Theme) || "arcade";
-    setLang(savedLang); setTheme(savedTheme);
-    setLangState(savedLang); setThemeState(savedTheme);
+    setLang(savedLang);
+    setTheme(savedTheme);
+    setLangState(savedLang);
+    setThemeState(savedTheme);
     setUnlocked(loadUnlocked());
     setCareer(loadCareer());
     setBestTimes(loadBestTimes());
@@ -50,11 +64,13 @@ function Index() {
   const isTerminal = theme === "terminal";
 
   const changeLang = (l: Lang) => {
-    setLang(l); setLangState(l);
+    setLang(l);
+    setLangState(l);
     if (typeof window !== "undefined") localStorage.setItem("f16fury_lang", l);
   };
   const changeTheme = (tt: Theme) => {
-    setTheme(tt); setThemeState(tt);
+    setTheme(tt);
+    setThemeState(tt);
     if (typeof window !== "undefined") localStorage.setItem("f16fury_theme", tt);
   };
 
@@ -66,7 +82,10 @@ function Index() {
   const accent3 = isTerminal ? "#cccccc" : "#ffd84d";
 
   return (
-    <div className="min-h-screen w-full font-mono text-white relative overflow-hidden" style={{ background: bg }}>
+    <div
+      className="min-h-screen w-full font-mono text-white relative overflow-hidden"
+      style={{ background: bg }}
+    >
       <div
         className="absolute inset-0 pointer-events-none opacity-30"
         style={{
@@ -91,15 +110,39 @@ function Index() {
         <div className="self-end flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1">
             <span style={{ color: accent }}>{u.language}:</span>
-            <button onClick={() => changeLang("et")} className={lang === "et" ? "underline font-bold" : "opacity-60"} style={{ color: accent2 }}>ET</button>
+            <button
+              onClick={() => changeLang("et")}
+              className={lang === "et" ? "underline font-bold" : "opacity-60"}
+              style={{ color: accent2 }}
+            >
+              ET
+            </button>
             <span className="opacity-40">|</span>
-            <button onClick={() => changeLang("en")} className={lang === "en" ? "underline font-bold" : "opacity-60"} style={{ color: accent2 }}>EN</button>
+            <button
+              onClick={() => changeLang("en")}
+              className={lang === "en" ? "underline font-bold" : "opacity-60"}
+              style={{ color: accent2 }}
+            >
+              EN
+            </button>
           </div>
           <div className="flex items-center gap-1">
             <span style={{ color: accent }}>{u.theme}:</span>
-            <button onClick={() => changeTheme("arcade")} className={theme === "arcade" ? "underline font-bold" : "opacity-60"} style={{ color: accent2 }}>{u.arcade}</button>
+            <button
+              onClick={() => changeTheme("arcade")}
+              className={theme === "arcade" ? "underline font-bold" : "opacity-60"}
+              style={{ color: accent2 }}
+            >
+              {u.arcade}
+            </button>
             <span className="opacity-40">|</span>
-            <button onClick={() => changeTheme("terminal")} className={theme === "terminal" ? "underline font-bold" : "opacity-60"} style={{ color: accent2 }}>{u.terminal}</button>
+            <button
+              onClick={() => changeTheme("terminal")}
+              className={theme === "terminal" ? "underline font-bold" : "opacity-60"}
+              style={{ color: accent2 }}
+            >
+              {u.terminal}
+            </button>
           </div>
         </div>
 
@@ -111,12 +154,18 @@ function Index() {
                 ? { color: accent, textShadow: `0 0 30px ${accent}`, letterSpacing: "0.1em" }
                 : {
                     background: "linear-gradient(180deg, #ffd84d 0%, #ff4fd8 60%, #7cf0ff 100%)",
-                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                    textShadow: "0 0 30px rgba(255,79,216,0.5)", letterSpacing: "0.1em",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    textShadow: "0 0 30px rgba(255,79,216,0.5)",
+                    letterSpacing: "0.1em",
                   }
             }
-          >F16 FURY</h1>
-          <p className="mt-2 text-sm sm:text-base tracking-widest" style={{ color: accent2 }}>{u.insertCoin}</p>
+          >
+            F16 FURY
+          </h1>
+          <p className="mt-2 text-sm sm:text-base tracking-widest" style={{ color: accent2 }}>
+            {u.insertCoin}
+          </p>
         </div>
 
         <Link
@@ -129,43 +178,96 @@ function Index() {
             textShadow: `0 0 10px ${accent}`,
             boxShadow: `0 0 20px ${accent}66, inset 0 0 20px ${accent}33`,
           }}
-        >{u.startGame}</Link>
+        >
+          {u.startGame}
+        </Link>
+
+        <Link
+          to="/coop"
+          className="px-8 py-3 text-lg font-bold border-2 transition-all hover:scale-105"
+          style={{
+            borderColor: accent2,
+            background: `${accent2}1a`,
+            color: accent2,
+            textShadow: `0 0 10px ${accent2}`,
+          }}
+        >
+          {u.coopMultiplayer}
+        </Link>
 
         <div className="grid sm:grid-cols-2 gap-6 w-full">
-          <div className="border p-4 text-sm" style={{ borderColor: `${accent2}66`, background: "rgba(0,0,0,0.5)" }}>
-            <h2 className="font-bold mb-2 tracking-widest" style={{ color: accent2 }}>{u.controls}</h2>
+          <div
+            className="border p-4 text-sm"
+            style={{ borderColor: `${accent2}66`, background: "rgba(0,0,0,0.5)" }}
+          >
+            <h2 className="font-bold mb-2 tracking-widest" style={{ color: accent2 }}>
+              {u.controls}
+            </h2>
             <ul className="space-y-1">
-              <li><span style={{ color: accent3 }}>WASD/Arrows</span> — {u.fly}</li>
-              <li><span style={{ color: accent3 }}>Space</span> — {u.machineGun}</li>
-              <li><span style={{ color: accent3 }}>J</span> — {u.laser}</li>
-              <li><span style={{ color: accent3 }}>K</span> — {u.bomb}</li>
-              <li><span style={{ color: accent3 }}>B</span> — {u.abombHint}</li>
-              <li><span style={{ color: accent3 }}>Q / E</span> — {u.trick}</li>
-              <li><span style={{ color: accent3 }}>Esc / P</span> — {u.pause}, <span style={{ color: accent3 }}>R</span> — {u.restart}</li>
+              <li>
+                <span style={{ color: accent3 }}>WASD/Arrows</span> — {u.fly}
+              </li>
+              <li>
+                <span style={{ color: accent3 }}>Space</span> — {u.machineGun}
+              </li>
+              <li>
+                <span style={{ color: accent3 }}>J</span> — {u.laser}
+              </li>
+              <li>
+                <span style={{ color: accent3 }}>K</span> — {u.bomb}
+              </li>
+              <li>
+                <span style={{ color: accent3 }}>B</span> — {u.abombHint}
+              </li>
+              <li>
+                <span style={{ color: accent3 }}>Q / E</span> — {u.trick}
+              </li>
+              <li>
+                <span style={{ color: accent3 }}>Esc / P</span> — {u.pause},{" "}
+                <span style={{ color: accent3 }}>R</span> — {u.restart}
+              </li>
             </ul>
           </div>
-          <div className="border p-4 text-sm" style={{ borderColor: `${accent}66`, background: "rgba(0,0,0,0.5)" }}>
-            <h2 className="font-bold mb-2 tracking-widest" style={{ color: accent }}>{u.manaTricks}</h2>
+          <div
+            className="border p-4 text-sm"
+            style={{ borderColor: `${accent}66`, background: "rgba(0,0,0,0.5)" }}
+          >
+            <h2 className="font-bold mb-2 tracking-widest" style={{ color: accent }}>
+              {u.manaTricks}
+            </h2>
             <ul className="space-y-1" style={{ color: accent2 }}>
-              {u.manaInfo.map((line) => <li key={line}>{line}</li>)}
+              {u.manaInfo.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
             </ul>
           </div>
         </div>
 
         {/* High scores */}
-        <div className="w-full border p-4" style={{ borderColor: `${accent3}66`, background: "rgba(0,0,0,0.5)" }}>
-          <h2 className="font-bold mb-2 tracking-widest text-center" style={{ color: accent3 }}>{u.highScores}</h2>
+        <div
+          className="w-full border p-4"
+          style={{ borderColor: `${accent3}66`, background: "rgba(0,0,0,0.5)" }}
+        >
+          <h2 className="font-bold mb-2 tracking-widest text-center" style={{ color: accent3 }}>
+            {u.highScores}
+          </h2>
           {scores.length === 0 ? (
-            <p className="text-center text-sm opacity-60" style={{ color: accent }}>{u.noScores}</p>
+            <p className="text-center text-sm opacity-60" style={{ color: accent }}>
+              {u.noScores}
+            </p>
           ) : (
             <ol className="space-y-1 text-sm">
               {scores.map((s, i) => (
                 <li key={i} className="grid grid-cols-[2rem_1fr_auto_auto_auto] gap-3 items-center">
                   <span style={{ color: accent3 }}>#{i + 1}</span>
-                  <span className="truncate" style={{ color: accent }}>{s.name || "—"}</span>
+                  <span className="truncate" style={{ color: accent }}>
+                    {s.name || "—"}
+                  </span>
                   <span className="tabular-nums">{s.score.toString().padStart(6, "0")}</span>
                   <span style={{ color: accent2 }}>WAVE {s.wave}</span>
-                  <span className="text-xs opacity-60">{new Date(s.date).toLocaleDateString()}</span>
+                  <span className="text-xs opacity-60">
+                    {new Date(s.date).toLocaleDateString()}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -173,9 +275,15 @@ function Index() {
         </div>
 
         {/* Achievements */}
-        <div className="w-full border p-4" style={{ borderColor: `${accent}66`, background: "rgba(0,0,0,0.5)" }}>
+        <div
+          className="w-full border p-4"
+          style={{ borderColor: `${accent}66`, background: "rgba(0,0,0,0.5)" }}
+        >
           <h2 className="font-bold mb-3 tracking-widest text-center" style={{ color: accent }}>
-            {u.achievements} <span className="text-xs opacity-70">({unlocked.size}/{Object.keys(ACHIEVEMENTS).length} {u.unlocked})</span>
+            {u.achievements}{" "}
+            <span className="text-xs opacity-70">
+              ({unlocked.size}/{Object.keys(ACHIEVEMENTS).length} {u.unlocked})
+            </span>
           </h2>
           <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             {(Object.keys(ACHIEVEMENTS) as AchKey[]).map((k) => {

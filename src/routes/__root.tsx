@@ -78,19 +78,49 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "F16 vs UFO" },
-      { name: "description", content: "F-16 UFO Duel is a desktop PC game where players pilot F-16s against UFOs in aerial combat." },
+      {
+        name: "description",
+        content:
+          "F-16 UFO Duel is a desktop PC game where players pilot F-16s against UFOs in aerial combat.",
+      },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "F16 vs UFO" },
-      { property: "og:description", content: "F-16 UFO Duel is a desktop PC game where players pilot F-16s against UFOs in aerial combat." },
+      {
+        property: "og:description",
+        content:
+          "F-16 UFO Duel is a desktop PC game where players pilot F-16s against UFOs in aerial combat.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "F16 vs UFO" },
-      { name: "twitter:description", content: "F-16 UFO Duel is a desktop PC game where players pilot F-16s against UFOs in aerial combat." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/DdUkICnZNKQCSTcpz3dujq8wxlg1/social-images/social-1782331873953-f16.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/DdUkICnZNKQCSTcpz3dujq8wxlg1/social-images/social-1782331873953-f16.webp" },
+      {
+        name: "twitter:description",
+        content:
+          "F-16 UFO Duel is a desktop PC game where players pilot F-16s against UFOs in aerial combat.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/DdUkICnZNKQCSTcpz3dujq8wxlg1/social-images/social-1782331873953-f16.webp",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/DdUkICnZNKQCSTcpz3dujq8wxlg1/social-images/social-1782331873953-f16.webp",
+      },
     ],
     links: [
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/favicon.svg",
+      },
+      {
+        rel: "icon",
+        type: "image/x-icon",
+        href: "/favicon.ico",
+      },
       {
         rel: "stylesheet",
         href: appCss,

@@ -54,9 +54,15 @@ export const DICTS: Record<Lang, Dict> = {
 };
 
 let _lang: Lang = "et";
-export function getLang(): Lang { return _lang; }
-export function setLang(l: Lang) { _lang = l; }
-export function t(): Dict { return DICTS[_lang]; }
+export function getLang(): Lang {
+  return _lang;
+}
+export function setLang(l: Lang) {
+  _lang = l;
+}
+export function t(): Dict {
+  return DICTS[_lang];
+}
 
 // UI strings (outside the canvas) — used by React components
 export interface UI {
@@ -111,22 +117,48 @@ export interface UI {
   statHighLevel: string;
   statHighScore: string;
   noBestYet: string;
+  coopTitle: string;
+  coopCreate: string;
+  coopJoin: string;
+  coopCopyLink: string;
+  coopHost: string;
+  coopStart: string;
+  coopWaitingHost: string;
+  coopRoom: string;
+  coopBackLobby: string;
+  coopMultiplayer: string;
 }
-
 
 export const UI_DICT: Record<Lang, UI> = {
   et: {
-    lives: "ELUD", mana: "MANA", wave: "LAINE", score: "SKOOR",
-    controls: "JUHTIMINE", fly: "lenda",
-    machineGun: "kuulipilduja", laser: "laser (8 mana)", bomb: "pomm",
-    abombHint: "A-pomm (50 mana — hävitab kõik!)", trick: "tünnirull (trikk)",
-    pause: "paus", restart: "uuesti", back: "← tagasi menüüsse",
-    highScores: "★ TIPPSKOORID ★", noScores: "— pole veel skoore —",
-    resume: "JÄTKA", restartBtn: "ALGA UUESTI", quit: "VÄLJU",
-    settings: "SEADED", theme: "Teema", arcade: "Arcade Neon", terminal: "Terminal",
+    lives: "ELUD",
+    mana: "MANA",
+    wave: "LAINE",
+    score: "SKOOR",
+    controls: "JUHTIMINE",
+    fly: "lenda",
+    machineGun: "kuulipilduja",
+    laser: "laser (8 mana)",
+    bomb: "pomm",
+    abombHint: "A-pomm (50 mana — hävitab kõik!)",
+    trick: "tünnirull (trikk)",
+    pause: "paus",
+    restart: "uuesti",
+    back: "← tagasi menüüsse",
+    highScores: "★ TIPPSKOORID ★",
+    noScores: "— pole veel skoore —",
+    resume: "JÄTKA",
+    restartBtn: "ALGA UUESTI",
+    quit: "VÄLJU",
+    settings: "SEADED",
+    theme: "Teema",
+    arcade: "Arcade Neon",
+    terminal: "Terminal",
     language: "Keel",
-    yourName: "Sinu nimi", namePlaceholder: "PILOOT",
-    start: "ALUSTA", startGame: "▶ ALUSTA MÄNGU",
+    yourName: "Sinu nimi",
+    namePlaceholder: "PILOOT",
+    start: "ALUSTA",
+    startGame: "▶ ALUSTA MÄNGU",
     manaTricks: "MANA & TRIKID",
     manaInfo: [
       "★ Tünnirull → +10 mana",
@@ -142,27 +174,52 @@ export const UI_DICT: Record<Lang, UI> = {
     unlocked: "lukust lahti",
     newAchievement: "UUS SAAVUTUS",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
-    music: "Muusika", sfx: "Helid", mute: "Vaigista", unmute: "Heli sisse", level: "TASE",
     careerStats: "KARJÄÄRI STATISTIKA",
     bestTimes: "PARIMAD TASEME AJAD",
     statGames: "Mänge", statKills: "Tapmised", statWaves: "Lainet",
     statBosses: "Bossi", statAbombs: "A-pomme", statPlaytime: "Aeg",
     statHighLevel: "Kõrgeim tase", statHighScore: "Rekord",
     noBestYet: "— pole veel aegu —",
-
+    coopTitle: "CO-OP MULTIPLAYER",
+    coopCreate: "LOO TUBA",
+    coopJoin: "ÜHENDU",
+    coopCopyLink: "Kopeeri link",
+    coopHost: "host",
+    coopStart: "▶ ALUSTA MÄNGU",
+    coopWaitingHost: "Ootan hosti...",
+    coopRoom: "TUBA",
+    coopBackLobby: "← tagasi lobby'sse",
+    coopMultiplayer: "▶ CO-OP (2–4 mängijat)",
   },
   en: {
-    lives: "LIVES", mana: "MANA", wave: "WAVE", score: "SCORE",
-    controls: "CONTROLS", fly: "fly",
-    machineGun: "machine gun", laser: "laser (8 mana)", bomb: "bomb",
-    abombHint: "A-bomb (50 mana — wipes all!)", trick: "barrel roll (trick)",
-    pause: "pause", restart: "restart", back: "← back to menu",
-    highScores: "★ HIGH SCORES ★", noScores: "— no scores yet —",
-    resume: "RESUME", restartBtn: "RESTART", quit: "QUIT",
-    settings: "SETTINGS", theme: "Theme", arcade: "Arcade Neon", terminal: "Terminal",
+    lives: "LIVES",
+    mana: "MANA",
+    wave: "WAVE",
+    score: "SCORE",
+    controls: "CONTROLS",
+    fly: "fly",
+    machineGun: "machine gun",
+    laser: "laser (8 mana)",
+    bomb: "bomb",
+    abombHint: "A-bomb (50 mana — wipes all!)",
+    trick: "barrel roll (trick)",
+    pause: "pause",
+    restart: "restart",
+    back: "← back to menu",
+    highScores: "★ HIGH SCORES ★",
+    noScores: "— no scores yet —",
+    resume: "RESUME",
+    restartBtn: "RESTART",
+    quit: "QUIT",
+    settings: "SETTINGS",
+    theme: "Theme",
+    arcade: "Arcade Neon",
+    terminal: "Terminal",
     language: "Language",
-    yourName: "Your name", namePlaceholder: "PILOT",
-    start: "START", startGame: "▶ START GAME",
+    yourName: "Your name",
+    namePlaceholder: "PILOT",
+    start: "START",
+    startGame: "▶ START GAME",
     manaTricks: "MANA & TRICKS",
     manaInfo: [
       "★ Barrel roll → +10 mana",
@@ -178,15 +235,25 @@ export const UI_DICT: Record<Lang, UI> = {
     unlocked: "unlocked",
     newAchievement: "NEW ACHIEVEMENT",
     insertCoin: "★ INSERT COIN ★ UFO INVASION 1986 ★",
-    music: "Music", sfx: "SFX", mute: "Mute", unmute: "Unmute", level: "LEVEL",
     careerStats: "CAREER STATS",
     bestTimes: "BEST LEVEL TIMES",
     statGames: "Games", statKills: "Kills", statWaves: "Waves",
     statBosses: "Bosses", statAbombs: "A-bombs", statPlaytime: "Playtime",
     statHighLevel: "Highest level", statHighScore: "High score",
     noBestYet: "— no times yet —",
-
+    coopTitle: "CO-OP MULTIPLAYER",
+    coopCreate: "CREATE ROOM",
+    coopJoin: "JOIN",
+    coopCopyLink: "Copy invite link",
+    coopHost: "host",
+    coopStart: "▶ START GAME",
+    coopWaitingHost: "Waiting for host...",
+    coopRoom: "ROOM",
+    coopBackLobby: "← back to lobby",
+    coopMultiplayer: "▶ CO-OP (2–4 players)",
   },
 };
 
-export function ui(): UI { return UI_DICT[_lang]; }
+export function ui(): UI {
+  return UI_DICT[_lang];
+}

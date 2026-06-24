@@ -78,14 +78,14 @@ function PlayPage() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-black text-white font-mono p-4 gap-3">
       {/* HUD */}
-      <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-xs sm:text-sm">
+      <div className="w-full max-w-[960px] grid grid-cols-3 gap-2 text-sm sm:text-base">
         <div className="flex items-center gap-2">
           <span className="text-pink-400">LIVES</span>
-          <span className="text-yellow-300 text-lg">{"♥".repeat(Math.max(0, stats.lives))}</span>
+          <span className="text-yellow-300 text-xl">{"♥".repeat(Math.max(0, stats.lives))}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-cyan-300">MANA</span>
-          <div className="flex-1 h-3 border border-cyan-300/60 bg-cyan-950/40 relative overflow-hidden">
+          <div className="flex-1 h-4 border border-cyan-300/60 bg-cyan-950/40 relative overflow-hidden">
             <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-400 transition-[width] duration-100" style={{ width: `${manaPct}%` }} />
           </div>
           <span className="text-cyan-200 w-10 text-right">{stats.mana}</span>

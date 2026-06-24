@@ -69,7 +69,9 @@ export const PALETTES: Record<Theme, Palette> = {
     gameOver: "#00ff41", gameOverSub: "#ffffff", pause: "#00ff41",
     hudAccent: "#00ff41",
     scanline: "rgba(0,255,65,0.06)",
+    levelTints: ["#00ff41", "#ffffff", "#aaaaaa", "#66ff88", "#444444"],
   },
+
 };
 
 let _theme: Theme = "arcade";

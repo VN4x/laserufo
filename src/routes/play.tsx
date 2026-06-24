@@ -24,6 +24,10 @@ const HS_KEY = "f16fury_highscores_v2";
 const NAME_KEY = "f16fury_player_name";
 const LANG_KEY = "f16fury_lang";
 const THEME_KEY = "f16fury_theme";
+const MUSIC_VOL_KEY = "f16fury_music_vol";
+const SFX_VOL_KEY = "f16fury_sfx_vol";
+const MUTE_KEY = "f16fury_muted";
+
 
 type Score = { name: string; score: number; wave: number; date: string };
 

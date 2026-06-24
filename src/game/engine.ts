@@ -283,7 +283,7 @@ export class Game {
     p.vel.x = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
     p.vel.y = (this.input.down ? 1 : 0) - (this.input.up ? 1 : 0);
     p.pos.x += p.vel.x * speed;
-    p.pos.y += p.vel.y * speed;
+    p.pos.y += p.vel.y * speed * 0.9;
     p.pos.x = Math.max(10, Math.min(VW - 36, p.pos.x));
     p.pos.y = Math.max(15, Math.min(VH - 32, p.pos.y));
 

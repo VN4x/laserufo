@@ -415,7 +415,7 @@ export class Game {
           const px = this.player.pos.x; const py = this.player.pos.y;
           const dx = px - e.pos.x; const dy = py - e.pos.y;
           const d = Math.hypot(dx, dy) || 1;
-          const sp = e.kind === "boss" ? 3 : 2.4;
+          const sp = e.kind === "boss" ? 2.55 : 2.04;
           this.projectiles.push({
             pos: { x: e.pos.x, y: e.pos.y }, vel: { x: dx / d * sp, y: dy / d * sp },
             w: 6, h: 6, alive: true, damage: 1, fromPlayer: false, kind: "plasma", life: 180,

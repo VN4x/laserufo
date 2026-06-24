@@ -646,11 +646,11 @@ export class Game {
       ctx.fillStyle = "rgba(0,0,0,0.6)";
       ctx.fillRect(0, 0, VW, VH);
       ctx.fillStyle = "#ff4fd8";
-      ctx.font = "bold 24px monospace";
+      ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
       ctx.fillText("GAME OVER", VW / 2, VH / 2 - 10);
       ctx.fillStyle = "#7cf0ff";
-      ctx.font = "10px monospace";
+      ctx.font = "12px monospace";
       ctx.fillText(`SCORE ${this.score}  WAVE ${this.wave}`, VW / 2, VH / 2 + 10);
       ctx.fillText("press R to restart", VW / 2, VH / 2 + 26);
       ctx.textAlign = "left";

@@ -806,30 +806,103 @@ export class Game {
       }
       ctx.globalAlpha = 1;
     } else if (e.kind === "boss") {
-      ctx.fillStyle = pal.bossTop;
-      ctx.fillRect(-30, -8, 60, 16);
-      ctx.fillStyle = pal.bossBot;
-      ctx.fillRect(-30, 8, 60, 8);
-      ctx.fillStyle = pal.bossDome;
-      ctx.fillRect(-16, -14, 32, 6);
-      ctx.fillStyle = pal.laserCore;
-      ctx.fillRect(-12, -12, 4, 2);
-      ctx.fillRect(8, -12, 4, 2);
+      this.drawBoss(e);
+    }
+    ctx.restore();
+  }
+
+  drawBoss(e: Enemy) {
+    const ctx = this.ctx;
+    const pal = P();
+    const v: BossVariant = e.variant ?? "saucer";
+    const hpFrac = e.hp / e.maxHp;
+    // HP bar (common)
+    const renderHp = () => {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(-30, -26, 60, 3);
+      ctx.fillStyle = pal.bossHp;
+      ctx.fillRect(-30, -26, Math.floor(60 * hpFrac), 3);
+    };
+    if (v === "saucer") {
+      ctx.fillStyle = pal.bossTop; ctx.fillRect(-30, -8, 60, 16);
+      ctx.fillStyle = pal.bossBot; ctx.fillRect(-30, 8, 60, 8);
+      ctx.fillStyle = pal.bossDome; ctx.fillRect(-16, -14, 32, 6);
+      ctx.fillStyle = pal.laserCore; ctx.fillRect(-12, -12, 4, 2); ctx.fillRect(8, -12, 4, 2);
       ctx.fillStyle = pal.bossLight;
       for (let i = 0; i < 6; i++) {
         const on = Math.floor(e.age * 8 + i) % 2 === 0;
         ctx.globalAlpha = on ? 1 : 0.3;
         ctx.fillRect(-24 + i * 10, 16, 3, 2);
       }
+    } else if (v === "insect") {
+      // Segmented body
+      ctx.fillStyle = pal.bossBot;
+      for (let i = -2; i <= 2; i++) ctx.fillRect(i * 10 - 4, -6, 8, 12);
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-30, -2, 60, 4);
+      // Wings flap
+      const flap = Math.sin(e.age * 10) * 4;
+      ctx.fillStyle = pal.bossDome;
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(-18, -16 - flap, 16, 6);
+      ctx.fillRect(2, -16 - flap, 16, 6);
       ctx.globalAlpha = 1;
+      // Head + mandibles + eyes
+      ctx.fillStyle = pal.bossTop; ctx.fillRect(22, -6, 12, 12);
+      ctx.fillStyle = pal.laserCore; ctx.fillRect(26, -4, 3, 3); ctx.fillRect(26, 1, 3, 3);
+      ctx.fillStyle = pal.bossLight;
+      ctx.fillRect(34, -7, 3, 2); ctx.fillRect(34, 5, 3, 2);
+      // Antennae
+      ctx.fillStyle = pal.bossLight;
+      ctx.fillRect(28, -12, 1, 4); ctx.fillRect(32, -12, 1, 4);
+    } else if (v === "monster") {
+      // Lumpy bulb body
+      ctx.fillStyle = pal.bossBot;
+      ctx.fillRect(-26, -10, 52, 22);
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-22, -14, 44, 8);
+      // Spikes on top
+      ctx.fillStyle = pal.bossDome;
+      for (let i = 0; i < 6; i++) ctx.fillRect(-20 + i * 8, -18, 3, 4);
+      // Big eyes
+      ctx.fillStyle = pal.laserCore;
+      ctx.fillRect(-14, -4, 6, 6); ctx.fillRect(8, -4, 6, 6);
       ctx.fillStyle = "#000";
-      ctx.fillRect(-30, -22, 60, 3);
-      ctx.fillStyle = pal.bossHp;
-      ctx.fillRect(-30, -22, Math.floor(60 * e.hp / e.maxHp), 3);
+      const blink = Math.floor(e.age * 2) % 8 === 0 ? 1 : 0;
+      ctx.fillRect(-12, -2 + blink, 2, 2); ctx.fillRect(10, -2 + blink, 2, 2);
+      // Jagged teeth
+      ctx.fillStyle = pal.bossLight;
+      for (let i = 0; i < 8; i++) {
+        const x = -22 + i * 6;
+        ctx.fillRect(x, 8, 2, 3 + (i % 2) * 2);
+      }
+    } else if (v === "spectre") {
+      // Wispy ghost — translucent
+      ctx.globalAlpha = 0.55 + Math.sin(e.age * 4) * 0.1;
+      ctx.fillStyle = pal.bossTop;
+      ctx.fillRect(-24, -12, 48, 22);
+      ctx.fillStyle = pal.bossBot;
+      // Tattered bottom
+      for (let i = 0; i < 8; i++) {
+        const h = 4 + (i % 2) * 4 + Math.floor(Math.sin(e.age * 3 + i) * 2);
+        ctx.fillRect(-24 + i * 6, 10, 5, h);
+      }
+      // Hollow eyes (glowing)
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = pal.bossDome;
+      ctx.fillRect(-12, -6, 6, 6); ctx.fillRect(6, -6, 6, 6);
+      ctx.fillStyle = pal.laserCore;
+      ctx.fillRect(-10, -4, 2, 2); ctx.fillRect(8, -4, 2, 2);
+      // Crown halo
+      ctx.fillStyle = pal.bossLight;
+      ctx.globalAlpha = 0.7;
+      for (let i = 0; i < 9; i++) ctx.fillRect(-20 + i * 5, -16, 2, 3);
     }
-    ctx.restore();
+    renderHp();
   }
 }
+
 
 function rectsHit(a: { pos: Vec; w: number; h: number }, b: { pos: Vec; w: number; h: number }) {
   return a.pos.x < b.pos.x + b.w / 2 + a.w / 2 &&
